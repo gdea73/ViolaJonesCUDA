@@ -2,3 +2,5 @@
 vj
 *.pgm
 *.swp
+tags
+images**

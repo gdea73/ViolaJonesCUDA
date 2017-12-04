@@ -37,9 +37,6 @@
 #include "stdio-wrapper.h"
 #include "haar.h"
 
-#define INPUT_FILENAME "Face.pgm"
-#define OUTPUT_FILENAME "Output.pgm"
-
 using namespace std;
 
 
@@ -63,7 +60,12 @@ int main (int argc, char *argv[])
 	MyImage imageObj;
 	MyImage *image = &imageObj;
 
-	flag = readPgm((char *)"Face.pgm", image);
+	if (argc != 3) {
+		fprintf(stderr, "%s%s%s\n", "Usage: ", argv[0], " in.pgm out.pgm");
+		return 1;
+	}
+
+	flag = readPgm(argv[1], image);
 	if (flag == -1)
 	{
 		printf( "Unable to open input image\n");
@@ -92,6 +94,8 @@ int main (int argc, char *argv[])
 
 	result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
 
+	printf("-- detected %d faces --\r\n", result.size());
+
 	for(i = 0; i < result.size(); i++ )
 	{
 		MyRect r = result[i];
@@ -99,7 +103,7 @@ int main (int argc, char *argv[])
 	}
 
 	printf("-- saving output --\r\n"); 
-	flag = writePgm((char *)OUTPUT_FILENAME, image); 
+	flag = writePgm(argv[2], image); 
 
 	printf("-- image saved --\r\n");
 
