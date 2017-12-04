@@ -46,7 +46,7 @@
  ***********************************/
 static int *stages_array;
 static int *rectangles_array;
-static int *weights_array;
+static float *weights_array;
 static int *alpha1_array;
 static int *alpha2_array;
 static int *tree_thresh_array;
@@ -358,21 +358,21 @@ inline int evalWeakClassifier(int variance_norm_factor, int p_offset, int tree_i
 	     - *(scaled_rectangles_array[r_index + 1] + p_offset)
 	     - *(scaled_rectangles_array[r_index + 2] + p_offset)
 	     + *(scaled_rectangles_array[r_index + 3] + p_offset))
-    * weights_array[w_index];
+    * weights_array[w_index] * 4096.0;
 
 
   sum += (*(scaled_rectangles_array[r_index+4] + p_offset)
 	  - *(scaled_rectangles_array[r_index + 5] + p_offset)
 	  - *(scaled_rectangles_array[r_index + 6] + p_offset)
 	  + *(scaled_rectangles_array[r_index + 7] + p_offset))
-    * weights_array[w_index + 1];
+    * weights_array[w_index + 1] * 4096.0;
 
   if ((scaled_rectangles_array[r_index+8] != NULL))
     sum += (*(scaled_rectangles_array[r_index+8] + p_offset)
 	    - *(scaled_rectangles_array[r_index + 9] + p_offset)
 	    - *(scaled_rectangles_array[r_index + 10] + p_offset)
 	    + *(scaled_rectangles_array[r_index + 11] + p_offset))
-      * weights_array[w_index + 2];
+      * weights_array[w_index + 2] * 4096.0;
 
   if(sum >= t)
     return alpha2_array[tree_index];
@@ -478,7 +478,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
        **************************************************************/
 
       /* the number "0.4" is empirically chosen for 5kk73 */
-      if( stage_sum < 0.4*stages_thresh_array[i] ){
+      if( stage_sum < 1.28*stages_thresh_array[i] ){
 	return -i;
       } /* end of the per-stage thresholding */
     } /* end of i loop */
@@ -651,11 +651,10 @@ void nearestNeighbor (MyImage *src, MyImage *dst)
     }
 }
 
-void readTextClassifier()//(myCascade * cascade)
-{
-  /*number of stages of the cascade classifier*/
+void readTextClassifier() { // myCascade *cascade) {
+  /* number of stages of the cascade classifier */
   int stages;
-  /*total number of weak classifiers (one node each)*/
+  /* total number of weak classifiers (one node each). */
   int total_nodes = 0;
   int i, j, k, l;
   char mystring [12];
@@ -665,9 +664,9 @@ void readTextClassifier()//(myCascade * cascade)
   FILE *finfo = fopen("info.txt", "r");
 
   /**************************************************
-  /* how many stages are in the cascaded filter? 
-  /* the first line of info.txt is the number of stages 
-  /* (in the 5kk73 example, there are 25 stages)
+   * how many stages are in the cascaded filter? 
+   * the first line of info.txt is the number of stages 
+   * (in the 5kk73 example, there are 25 stages)
   **************************************************/
   if ( fgets (mystring , 12 , finfo) != NULL )
     {
@@ -700,7 +699,7 @@ void readTextClassifier()//(myCascade * cascade)
    **********************************************/
   rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
   scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
-  weights_array = (int *)malloc(sizeof(int)*total_nodes*3);
+  weights_array = (float *)malloc(sizeof(float)*total_nodes*3);
   alpha1_array = (int*)malloc(sizeof(int)*total_nodes);
   alpha2_array = (int*)malloc(sizeof(int)*total_nodes);
   tree_thresh_array = (int*)malloc(sizeof(int)*total_nodes);
@@ -752,7 +751,7 @@ void readTextClassifier()//(myCascade * cascade)
 		  weights_array[w_index] = atoi(mystring);
 		  /* Shift value to avoid overflow in the haar evaluation */
 		  /*TODO: make more general */
-		  /*weights_array[w_index]>>=8; */
+		  weights_array[w_index] = atof(mystring) / 4096.0;
 		}
 	      else
 		break;
