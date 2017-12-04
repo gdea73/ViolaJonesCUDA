@@ -1,6 +1,8 @@
 *.o
 vj
 *.pgm
+*.pnm
+*.jpg
 *.swp
 tags
 images**
