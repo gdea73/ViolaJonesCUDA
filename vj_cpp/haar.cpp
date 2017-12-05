@@ -35,6 +35,11 @@
 #include "image.h"
 #include <stdio.h>
 #include "stdio-wrapper.h"
+#include <time.h>
+#include <sys/times.h>
+#include <sys/time.h>
+
+struct tms elapsed_time;
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -75,15 +80,17 @@ inline  int  myRound( float value )
   return (int)(value + (value >= 0 ? 0.5 : -0.5));
 }
 
+void printTimeElapsed(struct tms *in_time, const char *label);
+void printTimeDiff(clock_t start_time, const char *label);
+void printTime(const char *label, int iteration);
 /*******************************************************
  * Function: detectObjects
  * Description: It calls all the major steps
  ******************************************************/
 
 std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize, myCascade* cascade,
-				   float scaleFactor, int minNeighbors)
-{
-
+				   float scaleFactor, int minNeighbors) {
+				   printTime("beginning of detectObjects", -1);
   /* group overlaping windows */
   const float GROUP_EPS = 0.4f;
   /* pointer to input image */
@@ -129,21 +136,23 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
   /* window size of the training set */
   MySize winSize0 = cascade->orig_window_size;
 
+  printTime("before mallocing images, sum images", -1);
   /* malloc for img1: unsigned char */
   createImage(img->width, img->height, img1);
   /* malloc for sum1: unsigned char */
   createSumImage(img->width, img->height, sum1);
   /* malloc for sqsum1: unsigned char */
   createSumImage(img->width, img->height, sqsum1);
+  printTime("after mallocing images, sum images", -1);
 
   /* initial scaling factor */
   factor = 1;
 
   /* iterate over the image pyramid */
-  for( factor = 1; ; factor *= scaleFactor )
-    {
+  for( factor = 1; ; factor *= scaleFactor ) {
       /* iteration counter */
       iter_counter++;
+	  printTime("beginning of pyramid loop", iter_counter);
 
       /* size of the image scaled up */
       MySize winSize = { myRound(winSize0.width*factor), myRound(winSize0.height*factor) };
@@ -178,14 +187,18 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
        * building image pyramid by downsampling
        * downsampling using nearest neighbor
        **************************************/
+	  printTime("before nearest-neighbor", iter_counter);
       nearestNeighbor(img, img1);
+	  printTime("after nearest-neighbor", iter_counter);
 
       /***************************************************
        * Compute-intensive step:
        * At each scale of the image pyramid,
        * compute a new integral and squared integral image
        ***************************************************/
+	  printTime("before integral image", iter_counter);
       integralImages(img1, sum1, sqsum1);
+	  printTime("after integral image", iter_counter);
 
       /* sets images for haar classifier cascade */
       /**************************************************
@@ -209,8 +222,10 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
        * Optimization oppurtunity:
        * the same cascade filter is invoked each time
        ***************************************************/
+	  printTime("before cascade", iter_counter);
       ScaleImage_Invoker(cascade, factor, sum1->height, sum1->width,
 			 allCandidates);
+	  printTime("end of cascade; end of pyramid loop", iter_counter);
     } /* end of the factor loop, finish all scales in pyramid*/
 
   if( minNeighbors != 0)
@@ -221,9 +236,57 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
   freeImage(img1);
   freeSumImage(sum1);
   freeSumImage(sqsum1);
+  printTime("end of detectObjects", -1);
   return allCandidates;
-
 }
+
+void printTime(const char *label, int iteration) {
+	struct timeval tv;
+	if (gettimeofday(&tv, NULL)) {
+		fprintf(stderr, "problem getting time");
+		return;
+	}
+	long double time_total = (long double) (tv.tv_sec + 0.000001 * tv.tv_usec);
+	static long double last_time = time_total;
+	static long double begin_time = last_time;
+	long double time_diff = time_total - last_time;
+	const char *fmt_it = "%s (%d): %Lf s\n";
+	const char *fmt_it_total = "%s (%d): total %Lf s\n";
+	const char *fmt = "%s: %Lf s\n";
+	const char *fmt_total = "%s: total %Lf s\n";
+	if (iteration >= 0) {
+		printf(fmt_it, label, iteration, time_diff);
+		printf(fmt_it_total, label, iteration, time_total - begin_time);
+	} else {
+		printf(fmt, label, time_diff);
+		printf(fmt_total, label, time_total - begin_time);
+	}
+	last_time = time_total;
+}
+
+void printTimeDiff(clock_t start_time, const char *label) {
+	clock_t end_time = clock();
+    printf("Time elapsed: %s:\n", label);
+	printf("\t%jd\n", (end_time - start_time));
+}
+
+void printTimeElapsed(struct tms *in_time, const char *label) {
+    clock_t last_utime = in_time->tms_utime + in_time->tms_cutime;
+    clock_t last_stime = in_time->tms_stime + in_time->tms_cstime;
+    struct tms new_time;
+    times(&new_time);
+    // long double utime_s = (long double) ((new_time.tms_utime - last_utime)
+    //                       / CLOCKS_PER_SEC);
+    // long double stime_s = (long double) ((new_time.tms_stime - last_stime)
+    //                       / CLOCKS_PER_SEC);
+    printf("Time elapsed at label %s:\n", label);
+	printf("clocks per sec %d\n", CLOCKS_PER_SEC);
+	printf("\tuser: %Lf\n", (long double) (new_time.tms_utime + new_time.tms_cutime - last_utime));
+	printf("\tsystem: %jd\n", new_time.tms_stime + new_time.tms_cstime - last_stime);
+    // printf("\tuser time: %Lf ms\n", utime_s / (double) 1000);
+    // printf("\tsys time: %Lf ms\n", stime_s / (double) 1000);
+}
+
 
 /***********************************************
  * Note:
