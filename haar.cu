@@ -39,7 +39,7 @@
 /* include the gpu functions */
 #include "gpu_functions.cuh"
 
-#define STAGE_THRESH_MULTIPLIER 0.5
+#define STAGE_THRESH_MULTIPLIER 0.6
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -52,10 +52,10 @@
 static int *stages_array;
 static int *rectangles_array;
 static double *weights_array;
-static int *alpha1_array;
-static int *alpha2_array;
-static int *tree_thresh_array;
-static int *stages_thresh_array;
+static double *alpha1_array;
+static double *alpha2_array;
+static double *tree_thresh_array;
+static double *stages_thresh_array;
 static int **scaled_rectangles_array;
 
 
@@ -252,7 +252,6 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 	freeSumImage(sum1);
 	freeSumImage(sqsum1);
 	return allCandidates;
-
 }
 
 /***********************************************
@@ -292,8 +291,7 @@ unsigned int int_sqrt (unsigned int value)
 }
 
 
-void setImageForCascadeClassifier( myCascade* _cascade, MyIntImage* _sum, MyIntImage* _sqsum)
-{
+void setImageForCascadeClassifier (myCascade* _cascade, MyIntImage* _sum, MyIntImage *_sqsum) {
 	MyIntImage *sum = _sum;
 	MyIntImage *sqsum = _sqsum;
 	myCascade* cascade = _cascade;
@@ -378,13 +376,11 @@ void setImageForCascadeClassifier( myCascade* _cascade, MyIntImage* _sum, MyIntI
  * More info:
  * http://en.wikipedia.org/wiki/Haar-like_features
  ***************************************************/
-inline int evalWeakClassifier(int variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index )
-{
-
+inline double evalWeakClassifier (double variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index) {
 	/* the node threshold is multiplied by the standard deviation of the image */
-	int t = tree_thresh_array[tree_index] * variance_norm_factor;
+	double t = tree_thresh_array[tree_index] * variance_norm_factor;
 
-	int sum = (*(scaled_rectangles_array[r_index] + p_offset)
+	double sum = (*(scaled_rectangles_array[r_index] + p_offset)
 			- *(scaled_rectangles_array[r_index + 1] + p_offset)
 			- *(scaled_rectangles_array[r_index + 2] + p_offset)
 			+ *(scaled_rectangles_array[r_index + 3] + p_offset))
@@ -404,7 +400,7 @@ inline int evalWeakClassifier(int variance_norm_factor, int p_offset, int tree_i
 				+ *(scaled_rectangles_array[r_index + 11] + p_offset))
 			* weights_array[w_index + 2];
 
-	if(sum >= t)
+	if (sum >= t)
 		return alpha2_array[tree_index];
 	else
 		return alpha1_array[tree_index];
@@ -413,17 +409,15 @@ inline int evalWeakClassifier(int variance_norm_factor, int p_offset, int tree_i
 
 
 
-int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
-{
-
+int runCascadeClassifier (myCascade* _cascade, MyPoint pt, int start_stage) {
 	int p_offset, pq_offset;
 	int i, j;
-	unsigned int mean;
-	unsigned int variance_norm_factor;
+	double mean;
+	double variance_norm_factor;
 	int haar_counter = 0;
 	int w_index = 0;
 	int r_index = 0;
-	int stage_sum;
+	double stage_sum;
 	myCascade* cascade;
 	cascade = _cascade;
 
@@ -453,7 +447,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 	 * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#standard-functions
 	 **********************************************/
 	if( variance_norm_factor > 0 )
-		variance_norm_factor = int_sqrt(variance_norm_factor);
+		variance_norm_factor = sqrt(variance_norm_factor / 256.0);
 	else
 		variance_norm_factor = 1;
 
@@ -504,7 +498,6 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 		 * Otherwise, a face is detected (1)
 		 **************************************************************/
 
-		/* the number "0.4" is empirically chosen for 5kk73 */
 		if (stage_sum < STAGE_THRESH_MULTIPLIER * stages_thresh_array[i]) {
 			return -i;
 		} /* end of the per-stage thresholding */
@@ -674,9 +667,8 @@ void nearestNeighbor (MyImage *src, MyImage *dst)
 	}
 }
 
-void readTextClassifier()//(myCascade * cascade)
-{
-	/*number of stages of the cascade classifier*/
+void readTextClassifier() {
+	// number of stages of the cascade classifier
 	int stages;
 	/*total number of weak classifiers (one node each)*/
 	int total_nodes = 0;
@@ -688,9 +680,9 @@ void readTextClassifier()//(myCascade * cascade)
 	FILE *finfo = fopen("info.txt", "r");
 
 	/**************************************************
-	/* how many stages are in the cascaded filter? 
-	/* the first line of info.txt is the number of stages 
-	/* (in the 5kk73 example, there are 25 stages)
+	 * how many stages are in the cascaded filter? 
+	 * the first line of info.txt is the number of stages 
+	 * (in the 5kk73 example, there are 25 stages)
 	 **************************************************/
 	if ( fgets (mystring , 12 , finfo) != NULL )
 	{
@@ -724,10 +716,10 @@ void readTextClassifier()//(myCascade * cascade)
 	rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
 	scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
 	weights_array = (double *)malloc(sizeof(double)*total_nodes*3);
-	alpha1_array = (int*)malloc(sizeof(int)*total_nodes);
-	alpha2_array = (int*)malloc(sizeof(int)*total_nodes);
-	tree_thresh_array = (int*)malloc(sizeof(int)*total_nodes);
-	stages_thresh_array = (int*)malloc(sizeof(int)*stages);
+	alpha1_array = (double*)malloc(sizeof(double)*total_nodes);
+	alpha2_array = (double*)malloc(sizeof(double)*total_nodes);
+	tree_thresh_array = (double*)malloc(sizeof(double)*total_nodes);
+	stages_thresh_array = (double*)malloc(sizeof(double)*stages);
 	FILE *fp = fopen("class.txt", "r");
 
 	/******************************************
@@ -773,7 +765,7 @@ void readTextClassifier()//(myCascade * cascade)
 				if (fgets (mystring , 12 , fp) != NULL)
 				{
 					// weights_array[w_index] = atoi(mystring);
-					weights_array[w_index] = atof(mystring);
+					weights_array[w_index] = atof(mystring) / 4096.0;
 					/* Shift value to avoid overflow in the haar evaluation */
 					/*TODO: make more general */
 					/*weights_array[w_index]>>=8; */
@@ -783,22 +775,22 @@ void readTextClassifier()//(myCascade * cascade)
 				w_index++;
 			} /* end of k loop */
 			if (fgets (mystring , 12 , fp) != NULL)
-				tree_thresh_array[tree_index]= atoi(mystring);
+				tree_thresh_array[tree_index]= atof(mystring) / 256.0;
 			else
 				break;
 			if (fgets (mystring , 12 , fp) != NULL)
-				alpha1_array[tree_index]= atoi(mystring);
+				alpha1_array[tree_index]= atof(mystring) / 256.0;
 			else
 				break;
 			if (fgets (mystring , 12 , fp) != NULL)
-				alpha2_array[tree_index]= atoi(mystring);
+				alpha2_array[tree_index]= atof(mystring) / 256.0;
 			else
 				break;
 			tree_index++;
 			if (j == stages_array[i]-1)
 			{
 				if (fgets (mystring , 12 , fp) != NULL)
-					stages_thresh_array[i] = atoi(mystring);
+					stages_thresh_array[i] = atof(mystring) / 256.0;
 				else
 					break;
 			}
