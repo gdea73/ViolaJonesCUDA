@@ -39,6 +39,8 @@
 /* include the gpu functions */
 #include "gpu_functions.cuh"
 
+#define STAGE_THRESH_MULTIPLIER 0.5
+
 /* TODO: use matrices */
 /* classifier parameters */
 /************************************
@@ -49,7 +51,7 @@
  ***********************************/
 static int *stages_array;
 static int *rectangles_array;
-static int *weights_array;
+static double *weights_array;
 static int *alpha1_array;
 static int *alpha2_array;
 static int *tree_thresh_array;
@@ -58,7 +60,7 @@ static int **scaled_rectangles_array;
 
 
 int clock_counter = 0;
-float n_features = 0;
+int n_features = 0;
 
 
 int iter_counter = 0;
@@ -242,8 +244,7 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 
 	} /* end of the factor loop, finish all scales in pyramid*/
 
-	if( minNeighbors != 0)
-	{
+	if (minNeighbors != 0) {
 		groupRectangles(allCandidates, minNeighbors, GROUP_EPS);
 	}
 
@@ -473,9 +474,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 	 * except that filter results need to be merged,
 	 * and compared with a per-stage threshold.
 	 *************************************************/
-	for( i = start_stage; i < cascade->n_stages; i++ )
-	{
-
+	for (i = start_stage; i < cascade->n_stages; i++) {
 		/****************************************************
 		 * A shared variable that induces false dependency
 		 * 
@@ -486,8 +485,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 		 ***************************************************/
 		stage_sum = 0;
 
-		for( j = 0; j < stages_array[i]; j++ )
-		{
+		for (j = 0; j < stages_array[i]; j++) {
 			/**************************************************
 			 * Send the shifted window to a haar filter.
 			 **************************************************/
@@ -507,7 +505,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 		 **************************************************************/
 
 		/* the number "0.4" is empirically chosen for 5kk73 */
-		if( stage_sum < 0.4*stages_thresh_array[i] ){
+		if (stage_sum < STAGE_THRESH_MULTIPLIER * stages_thresh_array[i]) {
 			return -i;
 		} /* end of the per-stage thresholding */
 	} /* end of i loop */
@@ -515,9 +513,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 }
 
 
-void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect>& _vec)
-{
-
+void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect> &_vec) {
 	myCascade* cascade = _cascade;
 
 	float factor = _factor;
@@ -566,9 +562,8 @@ void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int su
 	 * Merge functions/loops to increase locality
 	 * Tiling to increase computation-to-memory ratio
 	 *********************************************/
-	for( x = 0; x <= x2; x += step )
-		for( y = y1; y <= y2; y += step )
-		{
+	for (x = 0; x <= x2; x += step) {
+		for (y = y1; y <= y2; y += step) {
 			p.x = x;
 			p.y = y;
 
@@ -590,12 +585,12 @@ void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int su
 			 * e.g., an array, to store the coordinates of face,
 			 * which can be later memcpy from GPU to CPU to do push_back
 			 *******************************************************/
-			if( result > 0 )
-			{
+			if (result > 0) {
 				MyRect r = {myRound(x*factor), myRound(y*factor), winSize.width, winSize.height};
 				vec->push_back(r);
 			}
 		}
+	}
 }
 
 /*****************************************************
@@ -604,8 +599,7 @@ void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int su
  * More info:
  * http://en.wikipedia.org/wiki/Summed_area_table
  ****************************************************/
-void integralImages( MyImage *src, MyIntImage *sum, MyIntImage *sqsum )
-{
+void integralImages (MyImage *src, MyIntImage *sum, MyIntImage *sqsum) {
 	int x, y, s, sq, t, tq;
 	unsigned char it;
 	int height = src->height;
@@ -729,7 +723,7 @@ void readTextClassifier()//(myCascade * cascade)
 	 **********************************************/
 	rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
 	scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
-	weights_array = (int *)malloc(sizeof(int)*total_nodes*3);
+	weights_array = (double *)malloc(sizeof(double)*total_nodes*3);
 	alpha1_array = (int*)malloc(sizeof(int)*total_nodes);
 	alpha2_array = (int*)malloc(sizeof(int)*total_nodes);
 	tree_thresh_array = (int*)malloc(sizeof(int)*total_nodes);
@@ -778,7 +772,8 @@ void readTextClassifier()//(myCascade * cascade)
 				} /* end of l loop */
 				if (fgets (mystring , 12 , fp) != NULL)
 				{
-					weights_array[w_index] = atoi(mystring);
+					// weights_array[w_index] = atoi(mystring);
+					weights_array[w_index] = atof(mystring);
 					/* Shift value to avoid overflow in the haar evaluation */
 					/*TODO: make more general */
 					/*weights_array[w_index]>>=8; */
