@@ -36,10 +36,10 @@
 #include <stdio.h>
 #include "stdio-wrapper.h"
 
-/* include the gpu functions */
-#include "gpu_functions.cuh"
+/* include kernels */
+#include "kernels.cu"
 
-#define STAGE_THRESH_MULTIPLIER 0.6
+#define STAGE_THRESH_MULTIPLIER 0.85
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -233,8 +233,8 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		/* To do: your GPU function here */
 		dim3 threads = dim3(64, 1);
 		dim3 grid = dim3(filter_count/64, 1);
-		gpu_function_1<<< grid, threads >>>();
-		gpu_function_2<<< grid, threads >>>();
+		// gpu_function_1<<< grid, threads >>>();
+		// gpu_function_2<<< grid, threads >>>();
 		/* and more functions */
 		/* free GPU memory */
 		cudaFree(gpu_cascade);
@@ -665,6 +665,32 @@ void nearestNeighbor (MyImage *src, MyImage *dst)
 			rat += x_ratio;
 		}
 	}
+}
+
+/* parameters: 
+* source
+* scaled (NN output pre-integral)
+* integral output
+* squared integral output
+ */
+void nn_integral(MyImage *src, MyImage *dst, MyIntImage *sum, MyIntImage *squ) {
+	// tile the dimensions of the output image
+	if (dst->width > 2048) {
+		fprintf(stderr, "Pyramid result was > 2,048 pixels in width.");
+	}
+	int blocksPerRow = dst->width / 1024;
+	blocksPerRow = (dst->width % 1024) ? blocksPerRow + 1 : blocksPerRow;
+	// blocks are restricted to <= 1,024 threads
+	// for smaller output images (i.e., width < 1,024), we run one block per row
+	dim3 blockDims((dst->width < 1024) ? dst->width : 1024, 1, 1);
+	// grid dimensions are far less restrictive; up to 65,536 blocks
+	dim3 gridDims(blocksPerRow, dst->height, 1);
+	nearest_neighbor_row_scan_kernel<<<gridDims, blockDims>>>(
+		src->width, src->height, dst->width, dst->height,
+		src->data, dst->data, sum->data, squ->data
+	);
+	cudaDeviceSynchronize();
+	// col_scan_kernel(dst, sum, squ);
 }
 
 void readTextClassifier() {
