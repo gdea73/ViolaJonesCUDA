@@ -34,6 +34,7 @@
 #include "haar.h"
 #include "image.h"
 #include <stdio.h>
+#include <stdint.h>
 #include "stdio-wrapper.h"
 
 /* include kernels */
@@ -586,6 +587,25 @@ void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int su
 	}
 }
 
+void scale_image_invoker(
+	myCascade *_cascade, float _factor, int sum_row,
+	int sum_col, std::vector<MyRect> &_vec
+) {
+	// int tile_size = _cascade->orig_window_size->height;
+	int n_windows_x = sum_col - 24 + 1;
+	int n_windows_y = sum_row - 24 + 1;
+	int n_blocks_x = n_windows_x / 32;
+	int n_blocks_y = n_windows_y / 32;
+	n_blocks_x = (n_windows_x % 32) ? n_blocks_x + 1 : n_blocks_x;
+	n_blocks_y = (n_windows_y % 32) ? n_blocks_y + 1 : n_blocks_y;
+	dim3 gridDims(n_blocks_x, n_blocks_y, 1);
+	dim3 blockDims(32, 32, 1);
+	int n_threads = n_blocks_y * n_blocks_x;
+	uint8_t *results;
+	cudaMalloc((void **) &results, sizeof(uint8_t) * n_threads);
+	
+}
+
 /*****************************************************
  * Compute the integral image (and squared integral)
  * Integral image helps quickly sum up an area.
@@ -823,6 +843,8 @@ void readTextClassifier() {
 		} /* end of j loop */
 	} /* end of i loop */
 	fclose(fp);
+	cudaMemcpyToSymbol(stage_thresholds, stages_thresh_array, 25 * sizeof(float));
+	cudaMemcpyToSymbol(stage_lengths, stages_array, 25 * sizeof(int));
 }
 
 
