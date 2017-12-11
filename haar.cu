@@ -81,6 +81,10 @@ void integralImages( MyImage *src, MyIntImage *sum, MyIntImage *sqsum );
 
 /* scale down the image */
 void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect>& _vec);
+void scale_image_invoker(
+	myCascade *cascade, float factor, int sum_row,
+	int sum_col, std::vector<MyRect> &face_vector_output
+);
 
 /* compute scaled image */
 void nearestNeighbor (MyImage *src, MyImage *dst);
@@ -225,8 +229,13 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 * Optimization oppurtunity:
 		 * the same cascade filter is invoked each time
 		 ***************************************************/
+		#ifdef USE_CUDA
+		scale_image_invoker(cascade, factor, sum1->height, sum1->width,
+							allCandidates);
+		#else
 		ScaleImage_Invoker(cascade, factor, sum1->height, sum1->width,
 				allCandidates);
+		#endif
 
 	} /* end of the factor loop, finish all scales in pyramid*/
 
@@ -883,9 +892,9 @@ void read_text_classifiers() {
 			} else { break; }
 		}
 		// at the end of the data for each stage, parse its threshold
-			if (fgets (fgets_buf , FGETS_BUF_SIZE , fp) != NULL) {
-				stages_thresh_array[i] = atof(fgets_buf) / 256.0;
-			} else { break; }
+		if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
+			stages_thresh_array[i] = atof(fgets_buf) / 256.0;
+		} else { break; }
 	}
 	fclose(fp);
 	// The lengths of each stage are both universally required by any cascade
