@@ -40,7 +40,11 @@
 /* include kernels */
 #include "kernels.cu"
 
+// this is duplicated in kernels.cu for the GPU Haar cascade
 #define STAGE_THRESH_MULTIPLIER 0.85
+// depending on our choice of precision, we may want > 12 chars when reading
+// floating-point values in class.txt
+#define FGETS_BUF_SIZE 12
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -52,11 +56,11 @@
  ***********************************/
 static int *stages_array;
 static int *rectangles_array;
-static double *weights_array;
-static double *alpha1_array;
-static double *alpha2_array;
-static double *tree_thresh_array;
-static double *stages_thresh_array;
+static float *weights_array;
+static float *alpha1_array;
+static float *alpha2_array;
+static float *tree_thresh_array;
+static float *stages_thresh_array;
 static int **scaled_rectangles_array;
 
 
@@ -377,11 +381,11 @@ void setImageForCascadeClassifier (myCascade* _cascade, MyIntImage* _sum, MyIntI
  * More info:
  * http://en.wikipedia.org/wiki/Haar-like_features
  ***************************************************/
-inline double evalWeakClassifier (double variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index) {
+inline float evalWeakClassifier (float variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index) {
 	/* the node threshold is multiplied by the standard deviation of the image */
-	double t = tree_thresh_array[tree_index] * variance_norm_factor;
+	float t = tree_thresh_array[tree_index] * variance_norm_factor;
 
-	double sum = (*(scaled_rectangles_array[r_index] + p_offset)
+	float sum = (*(scaled_rectangles_array[r_index] + p_offset)
 			- *(scaled_rectangles_array[r_index + 1] + p_offset)
 			- *(scaled_rectangles_array[r_index + 2] + p_offset)
 			+ *(scaled_rectangles_array[r_index + 3] + p_offset))
@@ -413,12 +417,12 @@ inline double evalWeakClassifier (double variance_norm_factor, int p_offset, int
 int runCascadeClassifier (myCascade* _cascade, MyPoint pt, int start_stage) {
 	int p_offset, pq_offset;
 	int i, j;
-	double mean;
-	double variance_norm_factor;
+	float mean;
+	float variance_norm_factor;
 	int haar_counter = 0;
 	int w_index = 0;
 	int r_index = 0;
-	double stage_sum;
+	float stage_sum;
 	myCascade* cascade;
 	cascade = _cascade;
 
@@ -713,6 +717,130 @@ void nn_integral(MyImage *src, MyImage *dst, MyIntImage *sum, MyIntImage *squ) {
 	// col_scan_kernel(dst, sum, squ);
 }
 
+/* This function is intended to replace readTextClassifier(); its data
+ * structures are optimized for GPU processing. Instead of keeping separate
+ * arrays for rectangle coordinates, weights, and filter child nodes, we can
+ * keep the flattened structure from the class.txt layout, and read each value
+ * as a float. While it makes more intuitive sense to store the coordinates of
+ * the rectangles as integers, it ultimately vastly simplifies the process of
+ * loading stages' data to the GPU if all attributes are contiguous in memory.
+ */
+void read_text_classifiers() {
+	// number of stages of the cascade classifier
+	int stages;
+	// total number of weak classifiers (one node each)
+	int total_nodes = 0;
+	int i = 0, j, k, l;
+	char fgets_buf[FGETS_BUF_SIZE];
+	int r_index = 0;
+	int w_index = 0;
+	int tree_index = 0;
+	FILE *finfo = fopen("info.txt", "r");
+
+	// There had better be 25 stages, or else kernels.cu will need an overhaul.
+	if (fgets(fgets_buf, FGETS_BUF_SIZE, finfo) != NULL) {
+		stages = atoi(fgets_buf);
+	}
+
+	// FIXME: WHEREILEFTOFF pinned memory probably ideal for bigger arrays on host
+	stages_array = (int *)malloc(sizeof(int)*stages);
+
+	// The number of filters per stage is also taken into account in kernels.cu
+	// when the cascade is segmented; optimal usage of shared memory would yield
+	// around 680 filters per segment (very near the maximum of 48 K). However,
+	// stages cannot be split when segmenting the cascade, so we err on the side
+	// of underutilization; about 40 K of shared memory per block (570 filters).
+	while (fgets(fgets_buf, FGETS_BUF_SIZE ,finfo) != NULL) {
+		stages_array[i] = atoi(fgets_buf);
+		total_nodes += stages_array[i];
+		i++;
+	}
+	fclose(finfo);
+
+	// huge, monolithic chunk of memory to hold essentially an exact copy
+	// of class.txt; each thread in a given cascade segment kernel will be
+	// simultaneously reading the same area within this array.
+	float *stage_data = malloc(sizeof(float) * total_nodes * 18);
+	int stage_data_index;
+	FILE *fp = fopen("class.txt", "r");
+
+	/******************************************
+	 * Read the filter parameters in class.txt
+	 *
+	 * Each stage of the cascaded filter has:
+	 * 18 parameter per filter x tilter per stage
+	 * + 1 threshold per stage
+	 *
+	 * For example, in 5kk73, 
+	 * the first stage has 9 filters,
+	 * the first stage is specified using
+	 * 18 * 9 + 1 = 163 parameters
+	 * They are line 1 to 163 of class.txt
+	 *
+	 * The 18 parameters for each filter are:
+	 * 1 to 4: coordinates of rectangle 1
+	 * 5: weight of rectangle 1
+	 * 6 to 9: coordinates of rectangle 2
+	 * 10: weight of rectangle 2
+	 * 11 to 14: coordinates of rectangle 3
+	 * 15: weight of rectangle 3
+	 * 16: threshold of the filter
+	 * 17: alpha 1 of the filter
+	 * 18: alpha 2 of the filter
+	 ******************************************/
+
+	for (i = 0; i < stages; i++) { // iterate over each stage in the cascade
+		for (j = 0; j < stages_array[i]; j++) {	// iterate over each filter/tree
+			for (k = 0; k < 3; k++) { // loop over each rectangle
+				for (l = 0; l < 4; l++) {
+					// add the 4 coordinates for each of the 3 rectangles
+					if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+						stage_data[stage_data_index++] = atof(fgets_buf);
+					} else {
+						// EOF condition?
+						break;
+					}
+				} 
+				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+					// add the weights for the 3 rectangles
+					// TODO: re-generate class.txt from OpenCV XML format,
+					// preserving FP accuracy (existing class.txt divides by
+					// 4096 and rounds to some fixed point format).
+					stage_data[stage_data_index++] = atof(fgets_buf) / 4096.0f;
+				} else {
+					break;
+				}
+			}
+			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
+				// The same is true here (see above TODO), except the scaling
+				// factor is 256, and there actually is loss of precision here
+				// versus OpenCV, whereas for the weights are usually integers.
+				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+			} else { break; }
+			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
+				// add "alpha1" for this filter
+				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+			} else { break; }
+			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
+				// add "alpha2" for this filter
+				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+			} else { break; }
+			tree_index++;
+		}
+		// at the end of the data for each stage, parse its threshold
+			if (fgets (fgets_buf , FGETS_BUF_SIZE , fp) != NULL) {
+				stage_thresholds[i] = atof(fgets_buf) / 256.0;
+			} else { break; }
+	}
+	fclose(fp);
+	// The lengths of each stage are both universally required by any cascade
+	// segment kernel, and comprise only 100 bytes of data. Therefore, they are
+	// a good candidate for read-only constant memory on the GPU.
+	cudaMemcpyToSymbol(stage_lengths, stages_array, 25 * sizeof(int));
+	// The same is true for the thresholds (sizeof(float) == sizeof(int) == 4).
+	cudaMemcpyToSymbol(stage_thresholds, stages_thresh_array, 25 * sizeof(float));
+}
+
 void readTextClassifier() {
 	// number of stages of the cascade classifier
 	int stages;
@@ -761,11 +889,11 @@ void readTextClassifier() {
 	 **********************************************/
 	rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
 	scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
-	weights_array = (double *)malloc(sizeof(double)*total_nodes*3);
-	alpha1_array = (double*)malloc(sizeof(double)*total_nodes);
-	alpha2_array = (double*)malloc(sizeof(double)*total_nodes);
-	tree_thresh_array = (double*)malloc(sizeof(double)*total_nodes);
-	stages_thresh_array = (double*)malloc(sizeof(double)*stages);
+	weights_array = (float *)malloc(sizeof(float)*total_nodes*3);
+	alpha1_array = (float*)malloc(sizeof(float)*total_nodes);
+	alpha2_array = (float*)malloc(sizeof(float)*total_nodes);
+	tree_thresh_array = (float*)malloc(sizeof(float)*total_nodes);
+	stages_thresh_array = (float*)malloc(sizeof(float)*stages);
 	FILE *fp = fopen("class.txt", "r");
 
 	/******************************************
