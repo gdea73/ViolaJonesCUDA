@@ -732,9 +732,6 @@ void read_text_classifiers() {
 	int total_nodes = 0;
 	int i = 0, j, k, l;
 	char fgets_buf[FGETS_BUF_SIZE];
-	int r_index = 0;
-	int w_index = 0;
-	int tree_index = 0;
 	FILE *finfo = fopen("info.txt", "r");
 
 	// There had better be 25 stages, or else kernels.cu will need an overhaul.
@@ -760,7 +757,7 @@ void read_text_classifiers() {
 	// huge, monolithic chunk of memory to hold essentially an exact copy
 	// of class.txt; each thread in a given cascade segment kernel will be
 	// simultaneously reading the same area within this array.
-	float *stage_data = malloc(sizeof(float) * total_nodes * 18);
+	float *stage_data =(float *)  malloc(sizeof(float) * total_nodes * 18);
 	int stage_data_index;
 	FILE *fp = fopen("class.txt", "r");
 
@@ -825,11 +822,10 @@ void read_text_classifiers() {
 				// add "alpha2" for this filter
 				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
 			} else { break; }
-			tree_index++;
 		}
 		// at the end of the data for each stage, parse its threshold
 			if (fgets (fgets_buf , FGETS_BUF_SIZE , fp) != NULL) {
-				stage_thresholds[i] = atof(fgets_buf) / 256.0;
+				stages_thresh_array[i] = atof(fgets_buf) / 256.0;
 			} else { break; }
 	}
 	fclose(fp);

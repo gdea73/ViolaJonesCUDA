@@ -2,6 +2,20 @@
 #define VJ_KERNELS_CU
 
 #define STAGE_THRESH_MULTIPLIER 0.85
+#define EVAL_STAGE(N) \
+	do { \
+		float stage##N##sum = 0.0f; \
+		filter_index = (N - 1) * (18 * stage_lengths[N - 1] + 1); \
+		for (i = 0; i < stage_lengths[N - 1]; i++) { \
+			stage##N##sum += eval_weak_classifier( \
+				std_dev, sum + img_start_index, filter_index, shared_stage_data \
+			); \
+			filter_index += 18; \
+		} \
+		if (stage##N##sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[N - 1]) { \
+			isFaceCandidate = 0; \
+		} \
+	} while (0)
 
 #include <stdint.h>
 
@@ -77,6 +91,9 @@ __global__ void col_scan_kernel(
 	// transpose()
 }
 
+// The pointer *integral_data holds the address of the top-left coordinate
+// of the rectangle to be evaluated. TODO: address memory coalescing issues when
+// shifting between rows of the detection window.
 __forceinline__ __device__ float eval_weak_classifier(
 	float std_dev, int *integral_data, int filter_index, float *stage_data
 ) {
@@ -147,68 +164,20 @@ __global__ void cascade_segment1_kernel(
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 
 	uint8_t isFaceCandidate = 1;
-	// process stage 1
-	float stage1sum = 0.0f;
 	int filter_index = 0;
-	for (i = 0; i < stage_lengths[0]; i++) {
-		stage1sum += eval_weak_classifier(
-			std_dev, sum + img_start_index, filter_index, shared_stage_data
-		);
-		filter_index += 18;
-	}
-	// Rejection does not disqualify any window from stages within this
-	// segment, for the sake of preserving the SIMD layout.
-	if (stage1sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[0]) {
-		isFaceCandidate = 0;
-	}
-	// process stage 2
-	float stage2sum = 0.0f;
-	filter_index = 1 * (18 * stage_lengths[1] + 1);
-	for (i = 0; i < stage_lengths[1]; i++) {
-		stage2sum += eval_weak_classifier(
-			std_dev, sum + img_start_index, filter_index, shared_stage_data
-		);
-		filter_index += 18;
-	}
-	if (stage2sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[1]) {
-		isFaceCandidate = 0;
-	}
-	// process stage 3
-	float stage3sum = 0.0f;
-	filter_index = 2 * (18 * stage_lengths[2] + 1);
-	for (i = 0; i < stage_lengths[2]; i++) {
-		stage3sum += eval_weak_classifier(
-			std_dev, sum + img_start_index, filter_index, shared_stage_data
-		);
-		filter_index += 18;
-	}
-	if (stage3sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[2]) {
-		isFaceCandidate = 0;
-	}
-	// process stage 4
-	float stage4sum = 0.0f;
-	filter_index = 3 * (18 * stage_lengths[3] + 1);
-	for (i = 0; i < stage_lengths[3]; i++) {
-		stage4sum += eval_weak_classifier(
-			std_dev, sum + img_start_index, filter_index, shared_stage_data
-		);
-		filter_index += 18;
-	}
-	if (stage4sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[3]) {
-		isFaceCandidate = 0;
-	}
-	// process stage 5
-	float stage5sum = 0.0f;
-	filter_index = 4 * (18 * stage_lengths[4] + 1);
-	for (i = 0; i < stage_lengths[4]; i++) {
-		stage5sum += eval_weak_classifier(
-			std_dev, sum + img_start_index, filter_index, shared_stage_data
-		);
-		filter_index += 18;
-	}
-	if (stage5sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[4]) {
-		isFaceCandidate = 0;
-	}
+	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
+	// for loops, threshold checks, &c.
+	EVAL_STAGE(1);
+	EVAL_STAGE(2);
+	EVAL_STAGE(3);
+	EVAL_STAGE(4);
+	EVAL_STAGE(5);
+	EVAL_STAGE(6);
+	EVAL_STAGE(7);
+	EVAL_STAGE(8);
+	EVAL_STAGE(9);
+	EVAL_STAGE(10);
+	EVAL_STAGE(11);
 	// the result array is a large, flattened 2D array, and the unique index
 	// is retrieved from the thread's coordinates within the grid.
 	int result_index = width * window_start_y + window_start_x;
