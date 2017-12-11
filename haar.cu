@@ -45,6 +45,7 @@
 // depending on our choice of precision, we may want > 12 chars when reading
 // floating-point values in class.txt
 #define FGETS_BUF_SIZE 12
+#define MAX_FACES 50 // how popular are you, really?
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -572,8 +573,8 @@ void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int su
 }
 
 void scale_image_invoker(
-	myCascade *cascade, float _factor, int sum_row,
-	int sum_col, std::vector<MyRect> &_vec
+	myCascade *cascade, float factor, int sum_row,
+	int sum_col, std::vector<MyRect> &face_vector_output
 ) {
 	// int tile_size = _cascade->orig_window_size->height;
 	int n_windows_x = sum_col - 24 + 1;
@@ -584,19 +585,88 @@ void scale_image_invoker(
 	n_blocks_y = (n_windows_y % 32) ? n_blocks_y + 1 : n_blocks_y;
 	dim3 gridDims(n_blocks_x, n_blocks_y, 1);
 	dim3 blockDims(32, 32, 1);
-	int n_threads = n_blocks_y * n_blocks_x;
+	int n_windows = n_blocks_y * n_blocks_x;
 	uint8_t *results;
-	cudaMalloc((void **) &results, sizeof(uint8_t) * n_threads);
+	int *remaining_candidates;
+	cudaMalloc((void **) &results, sizeof(uint8_t) * n_windows);
+	// TODO: size this appropriately
+	cudaMalloc((void **) &remaining_candidates, sizeof(int) * n_windows);
 	// for now, run stages after the first segment on the CPU
 	cascade_segment1_kernel<<<gridDims, blockDims>>>(
 		cascade->sum.data, cascade->sqsum.data, results,
 		stage_data_GPU, cascade->sum.width, cascade->sum.height
 	);
 	cudaDeviceSynchronize();
+	// For testing the first segment, it would be challenging to
+	// return to processing the rest on the CPU (as the data structures
+	// differ greatly). Instead, we can launch just as many threads for
+	// each kernel, and accept the performance hit of many of those threads
+	// terminating after failing the check set in results[] by the previous
+	// stage.
+	/* prototype of implementation for reducing number of threads for subsequent
+	 * segments
+	int n_remaining = 0;
+	// cudamemcpy to host
+	for (int i = 0; i < n_windows * results; i++) {
+	// calc remaining on host
+		remaining_candidates[n_remaining++]
+	}
+	// cudamemcpy back to device, pass that pointer to next kernel
+	dim3 blockDims(1024, 1, 1);
+	n_blocks_x = n_remaining / 1024;
+	n_blocks_x = (n_remaining % 1024) ? n_blocks_x + 1 : n_blocks_x;
+	*/
 	cascade_segment2_kernel<<<gridDims, blockDims>>>(
 		cascade->sum.data, cascade->sqsum.data, results,
 		stage_data_GPU, cascade->sum.width, cascade->sum.height
 	);
+	cudaDeviceSynchronize();
+	cascade_segment3_kernel<<<gridDims, blockDims>>>(
+		cascade->sum.data, cascade->sqsum.data, results,
+		stage_data_GPU, cascade->sum.width, cascade->sum.height
+	);
+	cudaDeviceSynchronize();
+	cascade_segment4_kernel<<<gridDims, blockDims>>>(
+		cascade->sum.data, cascade->sqsum.data, results,
+		stage_data_GPU, cascade->sum.width, cascade->sum.height
+	);
+	cudaDeviceSynchronize();
+	cascade_segment5_kernel<<<gridDims, blockDims>>>(
+		cascade->sum.data, cascade->sqsum.data, results,
+		stage_data_GPU, cascade->sum.width, cascade->sum.height
+	);
+	cudaDeviceSynchronize();
+	// retrieve the remaining rectangles (which passed every stage)
+	MySize winSizeOrig = cascade->orig_window_size;
+	MySize winSizeScaled;
+
+	winSizeScaled.width =  myRound(winSizeOrig.width*factor);
+	winSizeScaled.height =  myRound(winSizeOrig.height*factor);
+
+	int n_faces = 0;
+	int *face_thread_IDs;
+	uint8_t *results_host;
+	cudaMallocHost((void **) &results_host, n_windows * sizeof(uint8_t));
+	cudaMemcpy(results_host, results, n_windows * sizeof(uint8_t),
+			   cudaMemcpyDeviceToHost);
+	cudaMallocHost((void **) &face_thread_IDs, MAX_FACES * sizeof(int));
+	for (int i = 0; i < n_windows; i++) {
+		face_thread_IDs[n_faces++] = face_thread_IDs[i];
+		if (n_faces > MAX_FACES) {
+			fprintf(stderr, "Max number of faces (%d) exceeded.", MAX_FACES);
+			break;
+		}
+	}
+	std::vector<MyRect> *face_vector = &face_vector_output;
+	for (int i = 0; i < n_faces; i++) {
+		int window_start_x = face_thread_IDs[i] % cascade->sum.height;
+		int window_start_y = face_thread_IDs[i] / cascade->sum.height;
+		MyRect r = {
+			myRound(window_start_x * factor), myRound(window_start_y * factor),
+			winSizeScaled.width, winSizeScaled.height
+		};
+		face_vector->push_back(r);
+	}
 }
 
 /*****************************************************

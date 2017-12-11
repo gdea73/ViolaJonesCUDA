@@ -237,4 +237,142 @@ __global__ void cascade_segment2_kernel(
 	results[result_index] = isFaceCandidate;
 }
 
+__global__ void cascade_segment3_kernel(
+	int *sum, int *squ, uint8_t *results,
+	float *stage_data, int width, int height
+) {
+	int i;
+	__shared__ float shared_stage_data[18 * 620];
+	for (i = 0; i < 10; i++) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+	}
+	// some divergence is inevitable here
+	if (i * 1024 < 18 * 620) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	}
+
+	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
+	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x > width - 24 || window_start_y > height - 24) {
+		// edge case: this window lies outside the image boundaries
+		return;
+	}
+	
+	// FIXME: huge divergence until re-grid
+	// see comments in haar.cu:scale_image_invoker()
+	int result_index = width * window_start_y + window_start_x;
+	if (!results[result_index]) {
+		return;
+	}
+	// calculate the standard deviation of the pixel values in the window
+	int img_start_index = width * window_start_y + window_start_x;
+	int integral = sum[img_start_index + width * 24 + 24]
+				  - sum[img_start_index + width * 24]
+				  - sum[img_start_index + 24] + sum[img_start_index];
+	int square_integral = squ[img_start_index + width * 24 + 24]
+				  - squ[img_start_index + width * 24]
+				  - squ[img_start_index + 24] + squ[img_start_index];
+	float std_dev = square_integral * 24 * 24 - integral * integral;
+	std_dev = sqrt(std_dev / 256.0f);
+
+	uint8_t isFaceCandidate = 1;
+	int filter_index = 0;
+	EVAL_STAGE(16);
+	EVAL_STAGE(17);
+	EVAL_STAGE(18);
+	EVAL_STAGE(19);
+	results[result_index] = isFaceCandidate;
+}
+
+__global__ void cascade_segment4_kernel(
+	int *sum, int *squ, uint8_t *results,
+	float *stage_data, int width, int height
+) {
+	int i;
+	__shared__ float shared_stage_data[18 * 574];
+	for (i = 0; i < 10; i++) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+	}
+	// some divergence is inevitable here
+	if (i * 1024 < 18 * 574) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	}
+
+	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
+	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x > width - 24 || window_start_y > height - 24) {
+		// edge case: this window lies outside the image boundaries
+		return;
+	}
+	
+	// FIXME: huge divergence until re-grid
+	// see comments in haar.cu:scale_image_invoker()
+	int result_index = width * window_start_y + window_start_x;
+	if (!results[result_index]) {
+		return;
+	}
+	// calculate the standard deviation of the pixel values in the window
+	int img_start_index = width * window_start_y + window_start_x;
+	int integral = sum[img_start_index + width * 24 + 24]
+				  - sum[img_start_index + width * 24]
+				  - sum[img_start_index + 24] + sum[img_start_index];
+	int square_integral = squ[img_start_index + width * 24 + 24]
+				  - squ[img_start_index + width * 24]
+				  - squ[img_start_index + 24] + squ[img_start_index];
+	float std_dev = square_integral * 24 * 24 - integral * integral;
+	std_dev = sqrt(std_dev / 256.0f);
+
+	uint8_t isFaceCandidate = 1;
+	int filter_index = 0;
+	EVAL_STAGE(20);
+	EVAL_STAGE(21);
+	EVAL_STAGE(22);
+	results[result_index] = isFaceCandidate;
+}
+
+__global__ void cascade_segment5_kernel(
+	int *sum, int *squ, uint8_t *results,
+	float *stage_data, int width, int height
+) {
+	int i;
+	__shared__ float shared_stage_data[18 * 610];
+	for (i = 0; i < 10; i++) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+	}
+	// some divergence is inevitable here
+	if (i * 1024 < 18 * 610) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	}
+
+	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
+	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x > width - 24 || window_start_y > height - 24) {
+		// edge case: this window lies outside the image boundaries
+		return;
+	}
+	
+	// FIXME: huge divergence until re-grid
+	// see comments in haar.cu:scale_image_invoker()
+	int result_index = width * window_start_y + window_start_x;
+	if (!results[result_index]) {
+		return;
+	}
+	// calculate the standard deviation of the pixel values in the window
+	int img_start_index = width * window_start_y + window_start_x;
+	int integral = sum[img_start_index + width * 24 + 24]
+				  - sum[img_start_index + width * 24]
+				  - sum[img_start_index + 24] + sum[img_start_index];
+	int square_integral = squ[img_start_index + width * 24 + 24]
+				  - squ[img_start_index + width * 24]
+				  - squ[img_start_index + 24] + squ[img_start_index];
+	float std_dev = square_integral * 24 * 24 - integral * integral;
+	std_dev = sqrt(std_dev / 256.0f);
+
+	uint8_t isFaceCandidate = 1;
+	int filter_index = 0;
+	EVAL_STAGE(23);
+	EVAL_STAGE(24);
+	EVAL_STAGE(25);
+	results[result_index] = isFaceCandidate;
+}
 #endif
