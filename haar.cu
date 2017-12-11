@@ -63,6 +63,11 @@ static float *tree_thresh_array;
 static float *stages_thresh_array;
 static int **scaled_rectangles_array;
 
+// the host (CPU) copy of the filters
+float *stage_data;
+// to reside in GPU global memory
+float *stage_data_GPU;
+
 
 int clock_counter = 0;
 int n_features = 0;
@@ -221,31 +226,6 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 ***************************************************/
 		ScaleImage_Invoker(cascade, factor, sum1->height, sum1->width,
 				allCandidates);
-
-		/*********************************************
-		 * For the 5kk73 assignment,
-		 * here is a skeleton
-		 ********************************************/
-		/* malloc cascade filter on GPU memory*/
-		int filter_count = 0;
-		for(int i = 0; i < cascade->n_stages; i++ ){
-			filter_count += stages_array[i];
-		}
-		int size_per_filter = 18;
-		int* gpu_cascade;
-		cudaMalloc((void**) &gpu_cascade, filter_count*size_per_filter*sizeof(int));
-		/* To do: you need to memcpy filter parameters to GPU */
-		/* To do: your GPU function here */
-		dim3 threads = dim3(64, 1);
-		dim3 grid = dim3(filter_count/64, 1);
-		// gpu_function_1<<< grid, threads >>>();
-		// gpu_function_2<<< grid, threads >>>();
-		/* and more functions */
-		/* free GPU memory */
-		cudaFree(gpu_cascade);
-		/*********************************************
-		 * End of the GPU skeleton
-		 ********************************************/
 
 	} /* end of the factor loop, finish all scales in pyramid*/
 
@@ -592,7 +572,7 @@ void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int su
 }
 
 void scale_image_invoker(
-	myCascade *_cascade, float _factor, int sum_row,
+	myCascade *cascade, float _factor, int sum_row,
 	int sum_col, std::vector<MyRect> &_vec
 ) {
 	// int tile_size = _cascade->orig_window_size->height;
@@ -607,7 +587,16 @@ void scale_image_invoker(
 	int n_threads = n_blocks_y * n_blocks_x;
 	uint8_t *results;
 	cudaMalloc((void **) &results, sizeof(uint8_t) * n_threads);
-	
+	// for now, run stages after the first segment on the CPU
+	cascade_segment1_kernel<<<gridDims, blockDims>>>(
+		cascade->sum.data, cascade->sqsum.data, results,
+		stage_data_GPU, cascade->sum.width, cascade->sum.height
+	);
+	cudaDeviceSynchronize();
+	cascade_segment2_kernel<<<gridDims, blockDims>>>(
+		cascade->sum.data, cascade->sqsum.data, results,
+		stage_data_GPU, cascade->sum.width, cascade->sum.height
+	);
 }
 
 /*****************************************************
@@ -739,8 +728,8 @@ void read_text_classifiers() {
 		stages = atoi(fgets_buf);
 	}
 
-	// FIXME: WHEREILEFTOFF pinned memory probably ideal for bigger arrays on host
-	stages_array = (int *)malloc(sizeof(int)*stages);
+	// FIXME: pinned memory probably ideal for bigger arrays on host
+	stages_array = (int *) malloc(sizeof(int) * stages);
 
 	// The number of filters per stage is also taken into account in kernels.cu
 	// when the cascade is segmented; optimal usage of shared memory would yield
@@ -757,7 +746,7 @@ void read_text_classifiers() {
 	// huge, monolithic chunk of memory to hold essentially an exact copy
 	// of class.txt; each thread in a given cascade segment kernel will be
 	// simultaneously reading the same area within this array.
-	float *stage_data =(float *)  malloc(sizeof(float) * total_nodes * 18);
+	stage_data = (float *) malloc(sizeof(float) * total_nodes * 18);
 	int stage_data_index;
 	FILE *fp = fopen("class.txt", "r");
 
@@ -835,6 +824,15 @@ void read_text_classifiers() {
 	cudaMemcpyToSymbol(stage_lengths, stages_array, 25 * sizeof(int));
 	// The same is true for the thresholds (sizeof(float) == sizeof(int) == 4).
 	cudaMemcpyToSymbol(stage_thresholds, stages_thresh_array, 25 * sizeof(float));
+
+	cudaMalloc((void **) &stage_data_GPU, sizeof(float) * total_nodes * 18);
+	cudaMemcpy(stage_data_GPU, stage_data, sizeof(float) * total_nodes * 18,
+			   cudaMemcpyHostToDevice);
+}
+
+void free_text_classifiers() {
+	free(stages_array);
+	free(stage_data);
 }
 
 void readTextClassifier() {
@@ -967,8 +965,6 @@ void readTextClassifier() {
 		} /* end of j loop */
 	} /* end of i loop */
 	fclose(fp);
-	cudaMemcpyToSymbol(stage_thresholds, stages_thresh_array, 25 * sizeof(float));
-	cudaMemcpyToSymbol(stage_lengths, stages_array, 25 * sizeof(int));
 }
 
 

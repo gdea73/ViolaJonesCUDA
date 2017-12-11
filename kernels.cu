@@ -162,6 +162,7 @@ __global__ void cascade_segment1_kernel(
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
+	std_dev = sqrt(std_dev / 256.0f);
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
@@ -181,6 +182,58 @@ __global__ void cascade_segment1_kernel(
 	// the result array is a large, flattened 2D array, and the unique index
 	// is retrieved from the thread's coordinates within the grid.
 	int result_index = width * window_start_y + window_start_x;
+	results[result_index] = isFaceCandidate;
+}
+
+__global__ void cascade_segment2_kernel(
+	int *sum, int *squ, uint8_t *results,
+	float *stage_data, int width, int height
+) {
+	int i;
+	// this flattened float array is in the same format as class.txt;
+	// coordinates of rectangles do not need to be stored as floats,
+	// unless all the data is kept in this single array.
+	__shared__ float shared_stage_data[18 * 513];
+	for (i = 0; i < 10; i++) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+	}
+	// some divergence is inevitable here
+	if (i * 1024 < 18 * 513) {
+		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	}
+
+	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
+	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x > width - 24 || window_start_y > height - 24) {
+		// edge case: this window lies outside the image boundaries
+		return;
+	}
+	
+	// FIXME: huge divergence until re-grid
+	// see comments in haar.cu:scale_image_invoker()
+	int result_index = width * window_start_y + window_start_x;
+	if (!results[result_index]) {
+		return;
+	}
+	// calculate the standard deviation of the pixel values in the window
+	int img_start_index = width * window_start_y + window_start_x;
+	int integral = sum[img_start_index + width * 24 + 24]
+				  - sum[img_start_index + width * 24]
+				  - sum[img_start_index + 24] + sum[img_start_index];
+	int square_integral = squ[img_start_index + width * 24 + 24]
+				  - squ[img_start_index + width * 24]
+				  - squ[img_start_index + 24] + squ[img_start_index];
+	float std_dev = square_integral * 24 * 24 - integral * integral;
+	std_dev = sqrt(std_dev / 256.0f);
+
+	uint8_t isFaceCandidate = 1;
+	int filter_index = 0;
+	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
+	// for loops, threshold checks, &c.
+	EVAL_STAGE(12);
+	EVAL_STAGE(13);
+	EVAL_STAGE(14);
+	EVAL_STAGE(15);
 	results[result_index] = isFaceCandidate;
 }
 
