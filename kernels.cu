@@ -1,18 +1,18 @@
 #ifndef VJ_KERNELS_CU
 #define VJ_KERNELS_CU
 
-#define STAGE_THRESH_MULTIPLIER 0.85
+#define STAGE_THRESH_MULTIPLIER 1.40
 #define EVAL_STAGE(N) \
 	do { \
-		float stage##N##sum = 0.0f; \
+		stage_sum = 0.0f; \
 		filter_index = (N - 1) * (18 * stage_lengths[N - 1] + 1); \
 		for (i = 0; i < stage_lengths[N - 1]; i++) { \
-			stage##N##sum += eval_weak_classifier( \
+			stage_sum += eval_weak_classifier( \
 				std_dev, sum + img_start_index, filter_index, shared_stage_data \
 			); \
 			filter_index += 18; \
 		} \
-		if (stage##N##sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[N - 1]) { \
+		if (stage_sum < STAGE_THRESH_MULTIPLIER * stage_thresholds[N - 1]) { \
 			isFaceCandidate = 0; \
 		} \
 	} while (0)
@@ -23,12 +23,9 @@
 __device__ void row_scan(int *in_data, int *out_data, int width);
 __device__ void transpose();
 
-// read-only memory (from device perspective) for filter data
+// read-only memory (from device perspective) for filter stage meta-data
 __constant__ float stage_thresholds[25];
 __constant__ int stage_lengths[25];
-// __constant__ float stages_1_to_11[596];
-// __constant__ float stages_12_to_15[513];
-// __constant__ float stages_16_to_19[620];
 
 /* Cascade segment breakdown:
  * Each segment has a corresponding kernel, of which each thread evaluates
@@ -45,7 +42,7 @@ __constant__ int stage_lengths[25];
  */
 
 // kernel prototypes
-__global__ void nearest_neighbor_row_scan_kernel(
+/* __global__ void nearest_neighbor_row_scan_kernel(
 	int in_width, int in_height, int out_width, int out_height,
 	unsigned char *in, unsigned char *scaled, int *sum, int *squ
 );
@@ -53,7 +50,7 @@ __global__ void col_scan_kernel(
 	MyImage *in_scaled, MyIntImage *sum, MyIntImage *squ
 );
 __global__ void cascade_segment1_kernel(
-);
+); */
 
 __device__ void row_scan(int *in_data, int *out_data, int width) {
 
@@ -94,7 +91,7 @@ __global__ void col_scan_kernel(
 // The pointer *integral_data holds the address of the top-left coordinate
 // of the rectangle to be evaluated. TODO: address memory coalescing issues when
 // shifting between rows of the detection window.
-__forceinline__ __device__ float eval_weak_classifier(
+__device__ float eval_weak_classifier(
 	float std_dev, int *integral_data, int filter_index, float *stage_data
 ) {
 	int rect_index = filter_index;
@@ -166,11 +163,12 @@ __global__ void cascade_segment1_kernel(
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
+	float stage_sum;
 	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
 	// for loops, threshold checks, &c.
 	EVAL_STAGE(1);
 	EVAL_STAGE(2);
-	EVAL_STAGE(3);
+	/* EVAL_STAGE(3);
 	EVAL_STAGE(4);
 	EVAL_STAGE(5);
 	EVAL_STAGE(6);
@@ -178,7 +176,7 @@ __global__ void cascade_segment1_kernel(
 	EVAL_STAGE(8);
 	EVAL_STAGE(9);
 	EVAL_STAGE(10);
-	EVAL_STAGE(11);
+	EVAL_STAGE(11); */
 	// the result array is a large, flattened 2D array, and the unique index
 	// is retrieved from the thread's coordinates within the grid.
 	int result_index = width * window_start_y + window_start_x;
@@ -230,6 +228,7 @@ __global__ void cascade_segment2_kernel(
 	int filter_index = 0;
 	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
 	// for loops, threshold checks, &c.
+	float stage_sum;
 	EVAL_STAGE(12);
 	EVAL_STAGE(13);
 	EVAL_STAGE(14);
@@ -277,6 +276,7 @@ __global__ void cascade_segment3_kernel(
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
+	float stage_sum;
 	EVAL_STAGE(16);
 	EVAL_STAGE(17);
 	EVAL_STAGE(18);
@@ -324,6 +324,7 @@ __global__ void cascade_segment4_kernel(
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
+	float stage_sum;
 	EVAL_STAGE(20);
 	EVAL_STAGE(21);
 	EVAL_STAGE(22);
@@ -370,6 +371,7 @@ __global__ void cascade_segment5_kernel(
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
+	float stage_sum;
 	EVAL_STAGE(23);
 	EVAL_STAGE(24);
 	EVAL_STAGE(25);

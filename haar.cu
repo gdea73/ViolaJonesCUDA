@@ -82,8 +82,8 @@ void integralImages( MyImage *src, MyIntImage *sum, MyIntImage *sqsum );
 /* scale down the image */
 void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect>& _vec);
 void scale_image_invoker(
-	myCascade *cascade, float factor, int sum_row,
-	int sum_col, std::vector<MyRect> &face_vector_output
+	myCascade *cascade, float factor, int sum_height,
+	int sum_width, std::vector<MyRect> &face_vector_output
 );
 
 /* compute scaled image */
@@ -584,12 +584,12 @@ void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int su
 }
 
 void scale_image_invoker(
-	myCascade *cascade, float factor, int sum_row,
-	int sum_col, std::vector<MyRect> &face_vector_output
+	myCascade *cascade, float factor, int sum_height,
+	int sum_width, std::vector<MyRect> &face_vector_output
 ) {
 	// int tile_size = _cascade->orig_window_size->height;
-	int n_windows_x = sum_col - 24 + 1;
-	int n_windows_y = sum_row - 24 + 1;
+	int n_windows_x = sum_width - 24 + 1;
+	int n_windows_y = sum_height - 24 + 1;
 	int n_blocks_x = n_windows_x / 32;
 	int n_blocks_y = n_windows_y / 32;
 	n_blocks_x = (n_windows_x % 32) ? n_blocks_x + 1 : n_blocks_x;
@@ -603,9 +603,16 @@ void scale_image_invoker(
 	// TODO: size this appropriately
 	cudaMalloc((void **) &remaining_candidates, sizeof(int) * n_windows);
 	// for now, run stages after the first segment on the CPU
+	int *sum_GPU, *squ_GPU;
+	int sum_area = sum_width * sum_height;
+	cudaMalloc((void **) &sum_GPU, sum_area * sizeof(int));
+	cudaMemcpy(sum_GPU, cascade->sum.data, sum_area * sizeof(int),
+			   cudaMemcpyHostToDevice);
+	cudaMalloc((void **) &squ_GPU, sum_area * sizeof(int));
+	cudaMemcpy(squ_GPU, cascade->sqsum.data, sum_area * sizeof(int),
+			   cudaMemcpyHostToDevice);
 	cascade_segment1_kernel<<<gridDims, blockDims>>>(
-		cascade->sum.data, cascade->sqsum.data, results,
-		stage_data_GPU, cascade->sum.width, cascade->sum.height
+		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	// For testing the first segment, it would be challenging to
@@ -628,23 +635,19 @@ void scale_image_invoker(
 	n_blocks_x = (n_remaining % 1024) ? n_blocks_x + 1 : n_blocks_x;
 	*/
 	cascade_segment2_kernel<<<gridDims, blockDims>>>(
-		cascade->sum.data, cascade->sqsum.data, results,
-		stage_data_GPU, cascade->sum.width, cascade->sum.height
+		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment3_kernel<<<gridDims, blockDims>>>(
-		cascade->sum.data, cascade->sqsum.data, results,
-		stage_data_GPU, cascade->sum.width, cascade->sum.height
+		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment4_kernel<<<gridDims, blockDims>>>(
-		cascade->sum.data, cascade->sqsum.data, results,
-		stage_data_GPU, cascade->sum.width, cascade->sum.height
+		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment5_kernel<<<gridDims, blockDims>>>(
-		cascade->sum.data, cascade->sqsum.data, results,
-		stage_data_GPU, cascade->sum.width, cascade->sum.height
+		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	// retrieve the remaining rectangles (which passed every stage)
