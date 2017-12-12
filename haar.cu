@@ -41,11 +41,11 @@
 #include "kernels.cu"
 
 // this is duplicated in kernels.cu for the GPU Haar cascade
-#define STAGE_THRESH_MULTIPLIER 0.85
+#define STAGE_THRESH_MULTIPLIER_CPU 0.85
 // depending on our choice of precision, we may want > 12 chars when reading
 // floating-point values in class.txt
 #define FGETS_BUF_SIZE 12
-#define MAX_FACES 50 // how popular are you, really?
+#define MAX_FACES 500 
 
 /* TODO: use matrices */
 /* classifier parameters */
@@ -218,7 +218,9 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 * but does not do compuation based on four coners.
 		 * The computation is done next in ScaleImage_Invoker
 		 *************************************************/
-		setImageForCascadeClassifier( cascade, sum1, sqsum1);
+		// setImageForCascadeClassifier( cascade, sum1, sqsum1);
+		cascade->sum = *sum1;
+		cascade->sqsum = *sqsum1;
 
 		/* print out for each scale of the image pyramid */
 		printf("detecting faces, iter := %d\n", iter_counter);
@@ -493,7 +495,7 @@ int runCascadeClassifier (myCascade* _cascade, MyPoint pt, int start_stage) {
 		 * Otherwise, a face is detected (1)
 		 **************************************************************/
 
-		if (stage_sum < STAGE_THRESH_MULTIPLIER * stages_thresh_array[i]) {
+		if (stage_sum < STAGE_THRESH_MULTIPLIER_CPU * stages_thresh_array[i]) {
 			return -i;
 		} /* end of the per-stage thresholding */
 	} /* end of i loop */
@@ -676,6 +678,7 @@ void scale_image_invoker(
 		};
 		face_vector->push_back(r);
 	}
+	cudaFree(results); cudaFree(remaining_candidates);
 }
 
 /*****************************************************
@@ -809,6 +812,7 @@ void read_text_classifiers() {
 
 	// FIXME: pinned memory probably ideal for bigger arrays on host
 	stages_array = (int *) malloc(sizeof(int) * stages);
+	stages_thresh_array = (float*) malloc(sizeof(float) * stages);
 
 	// The number of filters per stage is also taken into account in kernels.cu
 	// when the cascade is segmented; optimal usage of shared memory would yield
@@ -907,6 +911,7 @@ void read_text_classifiers() {
 	cudaMalloc((void **) &stage_data_GPU, sizeof(float) * total_nodes * 18);
 	cudaMemcpy(stage_data_GPU, stage_data, sizeof(float) * total_nodes * 18,
 			   cudaMemcpyHostToDevice);
+	cudaFree(stage_data_GPU);
 }
 
 void free_text_classifiers() {
@@ -966,7 +971,6 @@ void readTextClassifier() {
 	alpha1_array = (float*)malloc(sizeof(float)*total_nodes);
 	alpha2_array = (float*)malloc(sizeof(float)*total_nodes);
 	tree_thresh_array = (float*)malloc(sizeof(float)*total_nodes);
-	stages_thresh_array = (float*)malloc(sizeof(float)*stages);
 	FILE *fp = fopen("class.txt", "r");
 
 	/******************************************
