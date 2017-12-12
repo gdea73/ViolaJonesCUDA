@@ -34,6 +34,7 @@
 #include "haar.h"
 #include "image.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include "stdio-wrapper.h"
 
@@ -66,8 +67,12 @@ static int **scaled_rectangles_array;
 
 // the host (CPU) copy of the filters
 float *stage_data;
-// to reside in GPU global memory
+// GPU DRAM pointers; stage data allocated in read_text_classifiers
 float *stage_data_GPU;
+// allocated in scale_image_invoker only for the first pyramid iteration
+static int *remaining_candidates;
+static uint8_t *results;
+static int *sum_GPU, *squ_GPU;
 
 
 int clock_counter = 0;
@@ -587,6 +592,8 @@ void scale_image_invoker(
 	myCascade *cascade, float factor, int sum_height,
 	int sum_width, std::vector<MyRect> &face_vector_output
 ) {
+	uint8_t *results_host;
+	int *face_thread_IDs;
 	// int tile_size = _cascade->orig_window_size->height;
 	int n_windows_x = sum_width - 24 + 1;
 	int n_windows_y = sum_height - 24 + 1;
@@ -596,21 +603,25 @@ void scale_image_invoker(
 	n_blocks_y = (n_windows_y % 32) ? n_blocks_y + 1 : n_blocks_y;
 	dim3 gridDims(n_blocks_x, n_blocks_y, 1);
 	dim3 blockDims(32, 32, 1);
-	int n_windows = n_blocks_y * n_blocks_x;
-	uint8_t *results;
-	int *remaining_candidates;
-	cudaMalloc((void **) &results, sizeof(uint8_t) * n_windows);
-	// TODO: size this appropriately
-	cudaMalloc((void **) &remaining_candidates, sizeof(int) * n_windows);
-	// for now, run stages after the first segment on the CPU
-	int *sum_GPU, *squ_GPU;
+	int n_windows = n_windows_y * n_windows_x;
 	int sum_area = sum_width * sum_height;
-	cudaMalloc((void **) &sum_GPU, sum_area * sizeof(int));
+	// We only perform GPU allocation for the first scale; despite the fact that
+	// subsequent scales in the pyramid will require less memory, it incurs
+	// additional overhead to cudaMalloc and cudaFree for each scale. The excess
+	// memory will merely go unaccessed for smaller pyramid iterations.
+	if (factor == 1) {
+		cudaMalloc((void **) &sum_GPU, sum_area * sizeof(int));
+		cudaMalloc((void **) &squ_GPU, sum_area * sizeof(int));
+		cudaMalloc((void **) &results, n_windows * sizeof(uint8_t));
+	}
+	face_thread_IDs = (int *) calloc(n_windows, sizeof(int));
+	results_host = (uint8_t *) calloc(n_windows, sizeof(uint8_t));
 	cudaMemcpy(sum_GPU, cascade->sum.data, sum_area * sizeof(int),
 			   cudaMemcpyHostToDevice);
-	cudaMalloc((void **) &squ_GPU, sum_area * sizeof(int));
 	cudaMemcpy(squ_GPU, cascade->sqsum.data, sum_area * sizeof(int),
 			   cudaMemcpyHostToDevice);
+	printf("Scaling factor: %f; number of detection windows: %d.\n",
+		   factor, n_windows);
 	cascade_segment1_kernel<<<gridDims, blockDims>>>(
 		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
@@ -658,30 +669,27 @@ void scale_image_invoker(
 	winSizeScaled.height =  myRound(winSizeOrig.height*factor);
 
 	int n_faces = 0;
-	int *face_thread_IDs;
-	uint8_t *results_host;
-	cudaMallocHost((void **) &results_host, n_windows * sizeof(uint8_t));
 	cudaMemcpy(results_host, results, n_windows * sizeof(uint8_t),
 			   cudaMemcpyDeviceToHost);
-	cudaMallocHost((void **) &face_thread_IDs, MAX_FACES * sizeof(int));
 	for (int i = 0; i < n_windows; i++) {
-		face_thread_IDs[n_faces++] = face_thread_IDs[i];
-		if (n_faces > MAX_FACES) {
-			fprintf(stderr, "Max number of faces (%d) exceeded.", MAX_FACES);
-			break;
-		}
+		if (!results_host[i]) { continue; }
+		face_thread_IDs[n_faces++] = i;
 	}
+	printf("Number of GPU threads that claim to contain faces: %d.\n", n_faces);
 	std::vector<MyRect> *face_vector = &face_vector_output;
 	for (int i = 0; i < n_faces; i++) {
 		int window_start_x = face_thread_IDs[i] % cascade->sum.height;
 		int window_start_y = face_thread_IDs[i] / cascade->sum.height;
+		printf("found a \"face\" beginning at (%d, %d).\n",
+			   window_start_x, window_start_y);
 		MyRect r = {
 			myRound(window_start_x * factor), myRound(window_start_y * factor),
 			winSizeScaled.width, winSizeScaled.height
 		};
 		face_vector->push_back(r);
 	}
-	cudaFree(results); cudaFree(remaining_candidates);
+	free(face_thread_IDs);
+	free(results_host);
 }
 
 /*****************************************************
@@ -867,7 +875,7 @@ void read_text_classifiers() {
 				for (l = 0; l < 4; l++) {
 					// add the 4 coordinates for each of the 3 rectangles
 					if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
-						stage_data[stage_data_index++] = atof(fgets_buf);
+						stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
 					} else {
 						// EOF condition?
 						break;
@@ -878,7 +886,7 @@ void read_text_classifiers() {
 					// TODO: re-generate class.txt from OpenCV XML format,
 					// preserving FP accuracy (existing class.txt divides by
 					// 4096 and rounds to some fixed point format).
-					stage_data[stage_data_index++] = atof(fgets_buf) / 4096.0f;
+					stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 4096.0f;
 				} else {
 					break;
 				}
@@ -887,20 +895,20 @@ void read_text_classifiers() {
 				// The same is true here (see above TODO), except the scaling
 				// factor is 256, and there actually is loss of precision here
 				// versus OpenCV, whereas for the weights are usually integers.
-				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
 			} else { break; }
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// add "alpha1" for this filter
-				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
 			} else { break; }
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// add "alpha2" for this filter
-				stage_data[stage_data_index++] = atof(fgets_buf) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
 			} else { break; }
 		}
 		// at the end of the data for each stage, parse its threshold
 		if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
-			stages_thresh_array[i] = atof(fgets_buf) / 256.0;
+			stages_thresh_array[i] = strtof(fgets_buf, NULL) / 256.0;
 		} else { break; }
 	}
 	fclose(fp);
@@ -914,12 +922,18 @@ void read_text_classifiers() {
 	cudaMalloc((void **) &stage_data_GPU, sizeof(float) * total_nodes * 18);
 	cudaMemcpy(stage_data_GPU, stage_data, sizeof(float) * total_nodes * 18,
 			   cudaMemcpyHostToDevice);
-	cudaFree(stage_data_GPU);
 }
 
 void free_text_classifiers() {
 	free(stages_array);
 	free(stage_data);
+}
+
+void free_GPU_pointers() {
+	cudaFree(stage_data_GPU);
+	cudaFree(results);
+	cudaFree(sum_GPU);
+	cudaFree(squ_GPU);
 }
 
 void readTextClassifier() {

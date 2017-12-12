@@ -1,11 +1,11 @@
 #ifndef VJ_KERNELS_CU
 #define VJ_KERNELS_CU
 
-#define STAGE_THRESH_MULTIPLIER 1.40
+#define STAGE_THRESH_MULTIPLIER 0.80
+
 #define EVAL_STAGE(N) \
 	do { \
 		stage_sum = 0.0f; \
-		filter_index = (N - 1) * (18 * stage_lengths[N - 1] + 1); \
 		for (i = 0; i < stage_lengths[N - 1]; i++) { \
 			stage_sum += eval_weak_classifier( \
 				std_dev, sum + img_start_index, filter_index, shared_stage_data \
@@ -89,8 +89,10 @@ __global__ void col_scan_kernel(
 }
 
 // The pointer *integral_data holds the address of the top-left coordinate
-// of the rectangle to be evaluated. TODO: address memory coalescing issues when
+// of the rectangle to be evaluated.
+// TODO: address memory coalescing issues when
 // shifting between rows of the detection window.
+// TODO: evaluate register limit issues vs performance increase with __forceinline__
 __device__ float eval_weak_classifier(
 	float std_dev, int *integral_data, int filter_index, float *stage_data
 ) {
@@ -116,7 +118,7 @@ __device__ float eval_weak_classifier(
 	  	   + *(integral_data + (int) stage_data[rect_index + 3]))
 	  	   * stage_data[weight_index];
 	// see class.txt format: 16th line of each filter is its threshold
-	float threshold = stage_data[filter_index + 15];
+	float threshold = stage_data[filter_index + 15] * std_dev;
 
 	if (sum >= threshold) {
 		// see class.txt format: 17th line of each filter is its right child
@@ -137,12 +139,15 @@ __global__ void cascade_segment1_kernel(
 	// unless all the data is kept in this single array.
 	__shared__ float shared_stage_data[18 * 596];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x * i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 < 18 * 596) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	if (i * 1024 + threadIdx.x < 18 * 596) {
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x + i * 1024];
 	}
+	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -152,23 +157,28 @@ __global__ void cascade_segment1_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	int integral = sum[img_start_index + width * 24 + 24]
+	unsigned int integral = sum[img_start_index + width * 24 + 24]
 				  - sum[img_start_index + width * 24]
 				  - sum[img_start_index + 24] + sum[img_start_index];
-	int square_integral = squ[img_start_index + width * 24 + 24]
+	unsigned int square_integral = squ[img_start_index + width * 24 + 24]
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
-	std_dev = sqrt(std_dev / 256.0f);
+	if (std_dev > 0) {
+		std_dev = sqrt(std_dev / 256.0f);
+	} else {
+		std_dev = 1;
+	}
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
+	// filter_index = (N - 1) * (18 * stage_lengths[N - 1] + 1);
 	float stage_sum;
 	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
 	// for loops, threshold checks, &c.
 	EVAL_STAGE(1);
 	EVAL_STAGE(2);
-	/* EVAL_STAGE(3);
+	EVAL_STAGE(3);
 	EVAL_STAGE(4);
 	EVAL_STAGE(5);
 	EVAL_STAGE(6);
@@ -176,7 +186,7 @@ __global__ void cascade_segment1_kernel(
 	EVAL_STAGE(8);
 	EVAL_STAGE(9);
 	EVAL_STAGE(10);
-	EVAL_STAGE(11); */
+	EVAL_STAGE(11);
 	// the result array is a large, flattened 2D array, and the unique index
 	// is retrieved from the thread's coordinates within the grid.
 	int result_index = width * window_start_y + window_start_x;
@@ -188,17 +198,17 @@ __global__ void cascade_segment2_kernel(
 	float *stage_data, int width, int height
 ) {
 	int i;
-	// this flattened float array is in the same format as class.txt;
-	// coordinates of rectangles do not need to be stored as floats,
-	// unless all the data is kept in this single array.
 	__shared__ float shared_stage_data[18 * 513];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x * i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 < 18 * 513) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	if (i * 1024 + threadIdx.x < 18 * 513) {
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x + i * 1024];
 	}
+	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -222,7 +232,11 @@ __global__ void cascade_segment2_kernel(
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
-	std_dev = sqrt(std_dev / 256.0f);
+	if (std_dev > 0) {
+		std_dev = sqrt(std_dev / 256.0f);
+	} else {
+		std_dev = 1;
+	}
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
@@ -243,12 +257,15 @@ __global__ void cascade_segment3_kernel(
 	int i;
 	__shared__ float shared_stage_data[18 * 620];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x * i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 < 18 * 620) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	if (i * 1024 + threadIdx.x < 18 * 620) {
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x + i * 1024];
 	}
+	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -272,7 +289,11 @@ __global__ void cascade_segment3_kernel(
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
-	std_dev = sqrt(std_dev / 256.0f);
+	if (std_dev > 0) {
+		std_dev = sqrt(std_dev / 256.0f);
+	} else {
+		std_dev = 1;
+	}
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
@@ -291,12 +312,15 @@ __global__ void cascade_segment4_kernel(
 	int i;
 	__shared__ float shared_stage_data[18 * 574];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x * i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 < 18 * 574) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	if (i * 1024 + threadIdx.x < 18 * 574) {
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x + i * 1024];
 	}
+	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -320,7 +344,11 @@ __global__ void cascade_segment4_kernel(
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
-	std_dev = sqrt(std_dev / 256.0f);
+	if (std_dev > 0) {
+		std_dev = sqrt(std_dev / 256.0f);
+	} else {
+		std_dev = 1;
+	}
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
@@ -338,12 +366,15 @@ __global__ void cascade_segment5_kernel(
 	int i;
 	__shared__ float shared_stage_data[18 * 610];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];	
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x * i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 < 18 * 610) {
-		shared_stage_data[i * 1024] = stage_data[i * 1024];
+	if (i * 1024 + threadIdx.x < 18 * 610) {
+		shared_stage_data[threadIdx.x + i * 1024] =
+			stage_data[threadIdx.x + i * 1024];
 	}
+	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -367,7 +398,11 @@ __global__ void cascade_segment5_kernel(
 				  - squ[img_start_index + width * 24]
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
-	std_dev = sqrt(std_dev / 256.0f);
+	if (std_dev > 0) {
+		std_dev = sqrt(std_dev / 256.0f);
+	} else {
+		std_dev = 1;
+	}
 
 	uint8_t isFaceCandidate = 1;
 	int filter_index = 0;
