@@ -119,6 +119,9 @@ __device__ float eval_weak_classifier(
 	  	   * stage_data[weight_index];
 	// see class.txt format: 16th line of each filter is its threshold
 	float threshold = stage_data[filter_index + 15] * std_dev;
+	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
+		printf("thread 0");
+	} */
 
 	if (sum < threshold) {
 		// see class.txt format: 16th line of each filter is its left child
@@ -157,12 +160,15 @@ __global__ void cascade_segment1_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	unsigned int integral = sum[img_start_index + width * 24 + 24]
-				  - sum[img_start_index + width * 24]
-				  - sum[img_start_index + 24] + sum[img_start_index];
-	unsigned int square_integral = squ[img_start_index + width * 24 + 24]
-				  - squ[img_start_index + width * 24]
-				  - squ[img_start_index + 24] + squ[img_start_index];
+	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
+		printf("%d, %d\n", window_start_x, window_start_y);
+	} */
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	unsigned int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
 		std_dev = sqrt(std_dev);
@@ -226,12 +232,12 @@ __global__ void cascade_segment2_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	int integral = sum[img_start_index + width * 24 + 24]
-				  - sum[img_start_index + width * 24]
-				  - sum[img_start_index + 24] + sum[img_start_index];
-	int square_integral = squ[img_start_index + width * 24 + 24]
-				  - squ[img_start_index + width * 24]
-				  - squ[img_start_index + 24] + squ[img_start_index];
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	unsigned int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
 		std_dev = sqrtf(std_dev / 256.0f);
@@ -283,12 +289,12 @@ __global__ void cascade_segment3_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	int integral = sum[img_start_index + width * 24 + 24]
-				  - sum[img_start_index + width * 24]
-				  - sum[img_start_index + 24] + sum[img_start_index];
-	int square_integral = squ[img_start_index + width * 24 + 24]
-				  - squ[img_start_index + width * 24]
-				  - squ[img_start_index + 24] + squ[img_start_index];
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	unsigned int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
 		std_dev = sqrt(std_dev / 256.0f);
@@ -337,13 +343,13 @@ __global__ void cascade_segment4_kernel(
 		return;
 	}
 	// calculate the standard deviation of the pixel values in the window
-	int img_start_index = width * window_start_y + window_start_x;
-	int integral = sum[img_start_index + width * 24 + 24]
-				  - sum[img_start_index + width * 24]
-				  - sum[img_start_index + 24] + sum[img_start_index];
-	int square_integral = squ[img_start_index + width * 24 + 24]
-				  - squ[img_start_index + width * 24]
-				  - squ[img_start_index + 24] + squ[img_start_index];
+	unsigned int img_start_index = width * window_start_y + window_start_x;
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
 		std_dev = sqrt(std_dev / 256.0f);
@@ -392,12 +398,12 @@ __global__ void cascade_segment5_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	int integral = sum[img_start_index + width * 24 + 24]
-				  - sum[img_start_index + width * 24]
-				  - sum[img_start_index + 24] + sum[img_start_index];
-	int square_integral = squ[img_start_index + width * 24 + 24]
-				  - squ[img_start_index + width * 24]
-				  - squ[img_start_index + 24] + squ[img_start_index];
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	unsigned int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
 		std_dev = sqrt(std_dev / 256.0f);
