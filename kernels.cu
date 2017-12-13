@@ -8,7 +8,8 @@
 		stage_sum = 0.0f; \
 		for (i = 0; i < stage_lengths[N - 1]; i++) { \
 			stage_sum += eval_weak_classifier( \
-				std_dev, sum + img_start_index, filter_index, shared_stage_data \
+				std_dev, sum + img_start_index,\
+				filter_index, shared_stage_data, width \
 			); \
 			filter_index += 18; \
 		} \
@@ -94,36 +95,50 @@ __global__ void col_scan_kernel(
 // shifting between rows of the detection window.
 // TODO: evaluate register limit issues vs performance increase with __forceinline__
 __device__ float eval_weak_classifier(
-	float std_dev, int *integral_data, int filter_index, float *stage_data
+	float std_dev, int *integral_data, int filter_index,
+	float *stage_data, int img_width
 ) {
 	int rect_index = filter_index;
 	int weight_index = filter_index + 4; // skip the 4 coords of first rectangle
-	float sum = (*(integral_data + (int) stage_data[rect_index])
-			  - *(integral_data + (int) stage_data[rect_index + 1])
-			  - *(integral_data + (int) stage_data[rect_index + 2])
-			  + *(integral_data + (int) stage_data[rect_index + 3]))
-			  * stage_data[weight_index];
-	weight_index += 4;
-	rect_index += 4;
-	sum += (*(integral_data + (int) stage_data[rect_index])
-	 	   - *(integral_data + (int) stage_data[rect_index + 1])
-	  	   - *(integral_data + (int) stage_data[rect_index + 2])
-	  	   + *(integral_data + (int) stage_data[rect_index + 3]))
-	  	   * stage_data[weight_index];
-	weight_index += 4;
-	rect_index += 4;
-	sum += (*(integral_data + (int) stage_data[rect_index])
-	 	   - *(integral_data + (int) stage_data[rect_index + 1])
-	  	   - *(integral_data + (int) stage_data[rect_index + 2])
-	  	   + *(integral_data + (int) stage_data[rect_index + 3]))
-	  	   * stage_data[weight_index];
-	// see class.txt format: 16th line of each filter is its threshold
-	float threshold = stage_data[filter_index + 15] * std_dev;
-	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
-		printf("thread 0");
+	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 1 && threadIdx.y == 1) {
+		printf("\n");
 	} */
-
-	if (sum < threshold) {
+	float sum = (
+		*(integral_data + (int) stage_data[rect_index + 2] // x2, y2
+					    + img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index] // x1, y2
+			      		+ img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index + 2] // x2, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	  + *(integral_data + (int) stage_data[rect_index] // x1, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	) * stage_data[weight_index] * 4096.0;
+	weight_index += 5;
+	rect_index += 5;
+	sum += (
+		*(integral_data + (int) stage_data[rect_index + 2] // x2, y2
+					    + img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index] // x1, y2
+			      		+ img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index + 2] // x2, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	  + *(integral_data + (int) stage_data[rect_index] // x1, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	) * stage_data[weight_index] * 4096.0;
+	weight_index += 5;
+	rect_index += 5;
+	sum += (
+		*(integral_data + (int) stage_data[rect_index + 2] // x2, y2
+					    + img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index] // x1, y2
+			      		+ img_width * (int) stage_data[rect_index + 3])
+	  - *(integral_data + (int) stage_data[rect_index + 2] // x2, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	  + *(integral_data + (int) stage_data[rect_index] // x1, y1
+	  					+ img_width * (int) stage_data[rect_index + 1])
+	) * stage_data[weight_index] * 4096.0;
+	// see class.txt format: 16th line of each filter is its threshold
+	if (sum < stage_data[filter_index + 15] * std_dev) {
 		// see class.txt format: 16th line of each filter is its left child
 		return stage_data[filter_index + 16];
 	} else {
@@ -160,9 +175,6 @@ __global__ void cascade_segment1_kernel(
 	}
 	// calculate the standard deviation of the pixel values in the window
 	int img_start_index = width * window_start_y + window_start_x;
-	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
-		printf("%d, %d\n", window_start_x, window_start_y);
-	} */
 	unsigned int integral = sum[img_start_index + width * 23 + 23]
 				  - sum[img_start_index + width * 23]
 				  - sum[img_start_index + 23] + sum[img_start_index];

@@ -812,7 +812,7 @@ void read_text_classifiers() {
 	int stages;
 	// total number of weak classifiers (one node each)
 	int total_nodes = 0;
-	int i = 0, j, k, l;
+	int i = 0, j, k;
 	char fgets_buf[FGETS_BUF_SIZE];
 	FILE *finfo = fopen("info.txt", "r");
 
@@ -872,15 +872,33 @@ void read_text_classifiers() {
 	for (i = 0; i < stages; i++) { // iterate over each stage in the cascade
 		for (j = 0; j < stages_array[i]; j++) {	// iterate over each filter/tree
 			for (k = 0; k < 3; k++) { // loop over each rectangle
-				for (l = 0; l < 4; l++) {
-					// add the 4 coordinates for each of the 3 rectangles
-					if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
-						stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
-					} else {
-						// EOF condition?
-						break;
-					}
-				} 
+				// add the 4 coordinates for each of the 3 rectangles
+				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+					stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
+				} else {
+					break;
+				}
+				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+					stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
+				} else {
+					break;
+				}
+				// the third coordinate is the width; we store it as width + x0
+				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+					stage_data[stage_data_index] = strtof(fgets_buf, NULL)
+						+ stage_data[stage_data_index - 2];
+					stage_data_index++;
+				} else {
+					break;
+				}
+				// the third coordinate is the height, but stored as height + y0
+				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
+					stage_data[stage_data_index] = strtof(fgets_buf, NULL)
+						+ stage_data[stage_data_index - 2];
+					stage_data_index++;
+				} else {
+					break;
+				}
 				if (fgets(fgets_buf, FGETS_BUF_SIZE , fp) != NULL) {
 					// add the weights for the 3 rectangles
 					// TODO: re-generate class.txt from OpenCV XML format,
@@ -890,7 +908,7 @@ void read_text_classifiers() {
 				} else {
 					break;
 				}
-			}
+			} 
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// The same is true here (see above TODO), except the scaling
 				// factor is 256, and there actually is loss of precision here
