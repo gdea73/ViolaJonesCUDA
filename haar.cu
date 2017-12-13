@@ -449,7 +449,7 @@ int runCascadeClassifier (myCascade* _cascade, MyPoint pt, int start_stage) {
 	 * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#standard-functions
 	 **********************************************/
 	if( variance_norm_factor > 0 )
-		variance_norm_factor = sqrt(variance_norm_factor / 256.0);
+		variance_norm_factor = sqrt(variance_norm_factor);
 	else
 		variance_norm_factor = 1;
 
@@ -646,19 +646,19 @@ void scale_image_invoker(
 	n_blocks_x = (n_remaining % 1024) ? n_blocks_x + 1 : n_blocks_x;
 	*/
 	cascade_segment2_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
+		sum_GPU, squ_GPU, results, stage_data_GPU + 596, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment3_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
+		sum_GPU, squ_GPU, results, stage_data_GPU + 1109, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment4_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
+		sum_GPU, squ_GPU, results, stage_data_GPU + 1729, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment5_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
+		sum_GPU, squ_GPU, results, stage_data_GPU + 2303, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	// retrieve the remaining rectangles (which passed every stage)
@@ -841,7 +841,7 @@ void read_text_classifiers() {
 	// of class.txt; each thread in a given cascade segment kernel will be
 	// simultaneously reading the same area within this array.
 	stage_data = (float *) malloc(sizeof(float) * total_nodes * 18);
-	int stage_data_index;
+	int stage_data_index = 0;
 	FILE *fp = fopen("class.txt", "r");
 
 	/******************************************
@@ -895,20 +895,20 @@ void read_text_classifiers() {
 				// The same is true here (see above TODO), except the scaling
 				// factor is 256, and there actually is loss of precision here
 				// versus OpenCV, whereas for the weights are usually integers.
-				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
 			} else { break; }
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// add "alpha1" for this filter
-				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
 			} else { break; }
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// add "alpha2" for this filter
-				stage_data[stage_data_index++] = strtof(fgets_buf, NULL) / 256.0;
+				stage_data[stage_data_index++] = strtof(fgets_buf, NULL);
 			} else { break; }
 		}
 		// at the end of the data for each stage, parse its threshold
 		if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
-			stages_thresh_array[i] = strtof(fgets_buf, NULL) / 256.0;
+			stages_thresh_array[i] = strtof(fgets_buf, NULL);
 		} else { break; }
 	}
 	fclose(fp);

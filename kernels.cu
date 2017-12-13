@@ -1,7 +1,7 @@
 #ifndef VJ_KERNELS_CU
 #define VJ_KERNELS_CU
 
-#define STAGE_THRESH_MULTIPLIER 0.80
+#define STAGE_THRESH_MULTIPLIER 0.4
 
 #define EVAL_STAGE(N) \
 	do { \
@@ -120,12 +120,12 @@ __device__ float eval_weak_classifier(
 	// see class.txt format: 16th line of each filter is its threshold
 	float threshold = stage_data[filter_index + 15] * std_dev;
 
-	if (sum >= threshold) {
+	if (sum < threshold) {
+		// see class.txt format: 16th line of each filter is its left child
+		return stage_data[filter_index + 16];
+	} else {
 		// see class.txt format: 17th line of each filter is its right child
 		return stage_data[filter_index + 17];
-	} else {
-		// see class.txt format: 17th line of each filter is its left child
-		return stage_data[filter_index + 16];
 	}
 }
 
@@ -140,7 +140,7 @@ __global__ void cascade_segment1_kernel(
 	__shared__ float shared_stage_data[18 * 596];
 	for (i = 0; i < 10; i++) {
 		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x * i * 1024];	
+			stage_data[threadIdx.x + i * 1024];	
 	}
 	// some divergence is inevitable here
 	if (i * 1024 + threadIdx.x < 18 * 596) {
@@ -165,7 +165,7 @@ __global__ void cascade_segment1_kernel(
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrt(std_dev / 256.0f);
+		std_dev = sqrt(std_dev);
 	} else {
 		std_dev = 1;
 	}
@@ -199,9 +199,10 @@ __global__ void cascade_segment2_kernel(
 ) {
 	int i;
 	__shared__ float shared_stage_data[18 * 513];
+	// FIXME: add offset for skipping first 11 stages
 	for (i = 0; i < 10; i++) {
 		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x * i * 1024];	
+			stage_data[threadIdx.x + i * 1024];	
 	}
 	// some divergence is inevitable here
 	if (i * 1024 + threadIdx.x < 18 * 513) {
@@ -233,7 +234,7 @@ __global__ void cascade_segment2_kernel(
 				  - squ[img_start_index + 24] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrt(std_dev / 256.0f);
+		std_dev = sqrtf(std_dev / 256.0f);
 	} else {
 		std_dev = 1;
 	}
@@ -258,7 +259,7 @@ __global__ void cascade_segment3_kernel(
 	__shared__ float shared_stage_data[18 * 620];
 	for (i = 0; i < 10; i++) {
 		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x * i * 1024];	
+			stage_data[threadIdx.x + i * 1024];	
 	}
 	// some divergence is inevitable here
 	if (i * 1024 + threadIdx.x < 18 * 620) {
@@ -313,7 +314,7 @@ __global__ void cascade_segment4_kernel(
 	__shared__ float shared_stage_data[18 * 574];
 	for (i = 0; i < 10; i++) {
 		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x * i * 1024];	
+			stage_data[threadIdx.x + i * 1024];	
 	}
 	// some divergence is inevitable here
 	if (i * 1024 + threadIdx.x < 18 * 574) {
@@ -367,7 +368,7 @@ __global__ void cascade_segment5_kernel(
 	__shared__ float shared_stage_data[18 * 610];
 	for (i = 0; i < 10; i++) {
 		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x * i * 1024];	
+			stage_data[threadIdx.x + i * 1024];	
 	}
 	// some divergence is inevitable here
 	if (i * 1024 + threadIdx.x < 18 * 610) {
