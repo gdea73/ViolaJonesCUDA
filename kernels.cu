@@ -9,7 +9,7 @@
 		for (i = 0; i < stage_lengths[N - 1]; i++) { \
 			stage_sum += eval_weak_classifier( \
 				std_dev, sum + img_start_index, \
-				filter_index, shared_stage_data, width \
+				filter_index, shared_stage_data, width, N, i \
 			); \
 			filter_index += 18; \
 		} \
@@ -96,13 +96,10 @@ __global__ void col_scan_kernel(
 // TODO: evaluate register limit issues vs performance increase with __forceinline__
 __device__ float eval_weak_classifier(
 	float std_dev, int *integral_data, int filter_index,
-	float *stage_data, int img_width
+	float *stage_data, int img_width, int N, int i
 ) {
 	int rect_index = filter_index;
 	int weight_index = filter_index + 4; // skip the 4 coords of first rectangle
-	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 1 && threadIdx.y == 0) {
-		printf("\n");
-	} */
 	float sum = (
 		*(integral_data + (int) stage_data[rect_index + 2] // x2, y2
 					    + img_width * (int) stage_data[rect_index + 3])
@@ -170,9 +167,6 @@ __global__ void cascade_segment1_kernel(
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
-	if (window_start_x == 72 && window_start_y == 148) {
-		printf("72 148 should be a face");
-	}
 	if (window_start_x > width - 24 || window_start_y > height - 24) {
 		// edge case: this window lies outside the image boundaries
 		return;
@@ -222,7 +216,6 @@ __global__ void cascade_segment2_kernel(
 	int i;
 	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	__shared__ float shared_stage_data[18 * 513];
-	// FIXME: add offset for skipping first 11 stages
 	for (i = 0; i < 9; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
@@ -257,7 +250,7 @@ __global__ void cascade_segment2_kernel(
 				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrtf(std_dev / 256.0f);
+		std_dev = sqrtf(std_dev);
 	} else {
 		std_dev = 1;
 	}
@@ -315,7 +308,7 @@ __global__ void cascade_segment3_kernel(
 				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrt(std_dev / 256.0f);
+		std_dev = sqrt(std_dev);
 	} else {
 		std_dev = 1;
 	}
@@ -371,7 +364,7 @@ __global__ void cascade_segment4_kernel(
 				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrt(std_dev / 256.0f);
+		std_dev = sqrt(std_dev);
 	} else {
 		std_dev = 1;
 	}
@@ -426,7 +419,7 @@ __global__ void cascade_segment5_kernel(
 				  - squ[img_start_index + 23] + squ[img_start_index];
 	float std_dev = square_integral * 24 * 24 - integral * integral;
 	if (std_dev > 0) {
-		std_dev = sqrt(std_dev / 256.0f);
+		std_dev = sqrt(std_dev);
 	} else {
 		std_dev = 1;
 	}
