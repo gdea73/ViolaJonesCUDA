@@ -86,7 +86,12 @@ int main (int argc, char *argv[])
 	cascade->orig_window_size.width = 24;
 
 
+#ifdef USE_CUDA
+	read_text_classifiers();
+#else
 	readTextClassifier();
+#endif
+	
 
 	std::vector<MyRect> result;
 
@@ -108,8 +113,14 @@ int main (int argc, char *argv[])
 	printf("-- image saved --\r\n");
 
 	/* delete image and free classifier */
+	#ifdef USE_CUDA
+	free_text_classifiers();
+	free_GPU_pointers();
+	#else
 	releaseTextClassifier();
-	freeImage(image);
+	#endif
+	// FIXME: massive memory issues with the image itself
+	// freeImage(image);
 
 	return 0;
 }

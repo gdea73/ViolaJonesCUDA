@@ -8,7 +8,7 @@
 		stage_sum = 0.0f; \
 		for (i = 0; i < stage_lengths[N - 1]; i++) { \
 			stage_sum += eval_weak_classifier( \
-				std_dev, sum + img_start_index,\
+				std_dev, sum + img_start_index, \
 				filter_index, shared_stage_data, width \
 			); \
 			filter_index += 18; \
@@ -100,7 +100,7 @@ __device__ float eval_weak_classifier(
 ) {
 	int rect_index = filter_index;
 	int weight_index = filter_index + 4; // skip the 4 coords of first rectangle
-	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 1 && threadIdx.y == 1) {
+	/* if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 1 && threadIdx.y == 0) {
 		printf("\n");
 	} */
 	float sum = (
@@ -152,23 +152,27 @@ __global__ void cascade_segment1_kernel(
 	float *stage_data, int width, int height
 ) {
 	int i;
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	// this flattened float array is in the same format as class.txt;
 	// coordinates of rectangles do not need to be stored as floats,
 	// unless all the data is kept in this single array.
 	__shared__ float shared_stage_data[18 * 596];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];	
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + threadIdx.x < 18 * 596) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];
+	if (i * 1024 + flattened_thread_id < 18 * 596) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
 	}
 	__syncthreads();
 
 	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
 	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x == 72 && window_start_y == 148) {
+		printf("72 148 should be a face");
+	}
 	if (window_start_x > width - 24 || window_start_y > height - 24) {
 		// edge case: this window lies outside the image boundaries
 		return;
@@ -216,16 +220,17 @@ __global__ void cascade_segment2_kernel(
 	float *stage_data, int width, int height
 ) {
 	int i;
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	__shared__ float shared_stage_data[18 * 513];
 	// FIXME: add offset for skipping first 11 stages
-	for (i = 0; i < 10; i++) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];	
+	for (i = 0; i < 9; i++) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + threadIdx.x < 18 * 513) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];
+	if (i * 1024 + flattened_thread_id < 18 * 513) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
 	}
 	__syncthreads();
 
@@ -274,15 +279,16 @@ __global__ void cascade_segment3_kernel(
 	float *stage_data, int width, int height
 ) {
 	int i;
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	__shared__ float shared_stage_data[18 * 620];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];	
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + threadIdx.x < 18 * 620) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];
+	if (i * 1024 + flattened_thread_id < 18 * 620) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
 	}
 	__syncthreads();
 
@@ -329,15 +335,16 @@ __global__ void cascade_segment4_kernel(
 	float *stage_data, int width, int height
 ) {
 	int i;
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	__shared__ float shared_stage_data[18 * 574];
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];	
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + threadIdx.x < 18 * 574) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];
+	if (i * 1024 + flattened_thread_id < 18 * 574) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
 	}
 	__syncthreads();
 
@@ -384,14 +391,15 @@ __global__ void cascade_segment5_kernel(
 ) {
 	int i;
 	__shared__ float shared_stage_data[18 * 610];
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
 	for (i = 0; i < 10; i++) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];	
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + threadIdx.x < 18 * 610) {
-		shared_stage_data[threadIdx.x + i * 1024] =
-			stage_data[threadIdx.x + i * 1024];
+	if (i * 1024 + flattened_thread_id < 18 * 610) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
 	}
 	__syncthreads();
 
