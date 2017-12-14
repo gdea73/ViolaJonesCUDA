@@ -41,6 +41,7 @@
 #include "stdio-wrapper.h"
 
 #define MAXLABELS 50
+#define USE_CUDA
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,8 +103,14 @@ void setImageForCascadeClassifier( myCascade* cascade, MyIntImage* sum, MyIntIma
 /* runs the cascade on the specified window */
 int runCascadeClassifier( myCascade* cascade, MyPoint pt, int start_stage);
 
+#ifdef USE_CUDA
+void read_text_classifiers();
+void free_text_classifiers();
+void free_GPU_pointers();
+#else
 void readTextClassifier();//(myCascade* cascade);
 void releaseTextClassifier();
+#endif
 
 
 //void groupRectangles(MyRect* _vec, int groupThreshold, float eps);
