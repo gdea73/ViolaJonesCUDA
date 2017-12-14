@@ -138,13 +138,13 @@ rectangles.o: rectangles.cpp $(HEADERS)
 stdio-wrapper.o: stdio-wrapper.c $(HEADERS)
 	        $(GCC) $(CCFLAGS) $(EXTRA_CCFLAGS) $(INCLUDES) -o $@ -c $<
 
-haar.o: haar.cu gpu_functions.cuh $(HEADERS)
+haar.o: haar.cu kernels.cu $(HEADERS)
 	$(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) $(GENCODE_FLAGS) $(INCLUDES) -o $@ -c $<
 
 vj: main.o haar.o image.o stdio-wrapper.o rectangles.o
 	$(GCC) $(CCFLAGS) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
-	mkdir -p ../../bin/$(OSLOWER)/$(TARGET)
-	cp $@ ../../bin/$(OSLOWER)/$(TARGET)
+	mkdir -p ./bin/$(OSLOWER)/$(TARGET)
+	cp $@ ./bin/$(OSLOWER)/$(TARGET)
 
 run: build
 	./vj
