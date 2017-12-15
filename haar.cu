@@ -80,7 +80,12 @@ int n_features = 0;
 
 
 int iter_counter = 0;
+/* To warm up the gpu */
+void init_gpu(){
 
+	cudaFree(0);
+
+}
 /* compute integral images */
 void integralImages( MyImage *src, MyIntImage *sum, MyIntImage *sqsum );
 
