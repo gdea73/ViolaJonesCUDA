@@ -724,14 +724,20 @@ void scale_image_invoker(
 	std::vector<MyRect> *face_vector = &face_vector_output;
 	for (int i = 0; i < n_faces; i++) {
 		int window_start_y = (int) (face_thread_IDs[i] / cascade->sum.width) + 1;
-		int window_start_x = face_thread_IDs[i] - cascade->sum.width * window_start_y;
-		printf("found a \"face\" beginning at (%d, %d).\n",
-			   window_start_x, window_start_y);
-		MyRect r = {
-			myRound(window_start_x * factor), myRound(window_start_y * factor),
-			winSizeScaled.width, winSizeScaled.height
-		};
-		face_vector->push_back(r);
+		int window_start_x = (int) (face_thread_IDs[i] - cascade->sum.width * (window_start_y - 1)) + 1;
+		// int window_start_x = window_start_y % cascade->sum.width;
+		if (window_start_x < 0 || window_start_x > cascade->sum.width - 24
+			|| window_start_y > cascade->sum.height - 24) {
+			printf("edge rectangle detected (%d, %d)\n", window_start_x, window_start_y);
+		} else {
+			printf("found a face beginning at (%d, %d).\n",
+				   myRound(window_start_x * factor), myRound(window_start_y * factor));
+			MyRect r = {
+				myRound(window_start_x * factor), myRound(window_start_y * factor),
+				winSizeScaled.width, winSizeScaled.height
+			};
+			face_vector->push_back(r);
+		}
 	}
 	free(face_thread_IDs);
 	free(results_host);
