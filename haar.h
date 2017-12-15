@@ -104,6 +104,7 @@ void setImageForCascadeClassifier( myCascade* cascade, MyIntImage* sum, MyIntIma
 int runCascadeClassifier( myCascade* cascade, MyPoint pt, int start_stage);
 
 #ifdef USE_CUDA
+void init_GPU();
 void read_text_classifiers();
 void free_text_classifiers();
 void free_GPU_pointers();

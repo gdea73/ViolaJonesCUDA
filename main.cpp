@@ -37,11 +37,19 @@
 #include "stdio-wrapper.h"
 #include "haar.h"
 
+#include <time.h>
+#include <sys/time.h>
+struct timeval start_time, end_time;
+
+
 using namespace std;
 
 
 int main (int argc, char *argv[]) 
 {
+
+	double start_count , end_count;
+        double elapsed_time;
 
 	int flag;
 	
@@ -87,7 +95,14 @@ int main (int argc, char *argv[])
 
 
 #ifdef USE_CUDA
+	gettimeofday(&start_time,NULL);
 	read_text_classifiers();
+        gettimeofday(&end_time,NULL);
+        start_count = (double) start_time.tv_sec + 1.e-6 * (double) start_time.tv_usec;
+        end_count = (double) end_time.tv_sec + 1.e-6 * (double) end_time.tv_usec;
+        elapsed_time = (end_count - start_count);
+        printf("The total elapsed time for read_text_classifiers() is : %f seconds\n",elapsed_time);
+
 #else
 	readTextClassifier();
 #endif
@@ -97,13 +112,21 @@ int main (int argc, char *argv[])
 
 	printf("-- detecting faces --\r\n");
 
-	result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
+	gettimeofday(&start_time,NULL);
+        result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
+        gettimeofday(&end_time,NULL);
+        start_count = (double) start_time.tv_sec + 1.e-6 * (double) start_time.tv_usec;
+        end_count = (double) end_time.tv_sec + 1.e-6 * (double) end_time.tv_usec;
+        elapsed_time = (end_count - start_count);
+        printf("The total elapsed time for detectObjects() is : %f seconds\n",elapsed_time);
+
 
 	printf("-- detected %d faces --\r\n", result.size());
 
 	for(i = 0; i < result.size(); i++ )
 	{
 		MyRect r = result[i];
+		printf("Face number %d found at coordinates x: %d , y: %d - With width: %d , height: %d\n",i,r.x,r.y,r.width,r.height);
 		drawRectangle(image, r);
 	}
 

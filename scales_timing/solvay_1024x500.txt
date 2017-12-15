@@ -1,0 +1,480 @@
+-- entering main function --
+-- loading image --
+
+Reading image file: solvay_1024x500.pgm
+-- loading cascade classifier --
+The total elapsed time for read_text_classifiers() is : 0.312592 seconds
+-- detecting faces --
+detecting faces, iter := 1
+Scaling factor: 1.000000; number of detection windows: 476523.
+Number of GPU threads that claim to contain faces (post-seg 1): 83.
+Number of GPU threads that claim to contain faces (post-seg 2): 30.
+Number of GPU threads that claim to contain faces (post-seg 3): 13.
+Number of GPU threads that claim to contain faces (post-seg 4): 9.
+Number of GPU threads that claim to contain faces (post-seg 5): 1.
+Number of GPU threads that claim to contain faces: 1.
+found a "face" beginning at (-662, 140).
+detecting faces, iter := 2
+Scaling factor: 1.200000; number of detection windows: 325404.
+Number of GPU threads that claim to contain faces (post-seg 1): 223.
+Number of GPU threads that claim to contain faces (post-seg 2): 136.
+Number of GPU threads that claim to contain faces (post-seg 3): 97.
+Number of GPU threads that claim to contain faces (post-seg 4): 85.
+Number of GPU threads that claim to contain faces (post-seg 5): 65.
+Number of GPU threads that claim to contain faces: 65.
+found a "face" beginning at (-156, 32).
+found a "face" beginning at (-157, 33).
+found a "face" beginning at (-156, 33).
+found a "face" beginning at (-155, 33).
+found a "face" beginning at (-156, 34).
+found a "face" beginning at (-717, 37).
+found a "face" beginning at (-658, 55).
+found a "face" beginning at (-657, 55).
+found a "face" beginning at (-658, 56).
+found a "face" beginning at (-657, 56).
+found a "face" beginning at (-656, 56).
+found a "face" beginning at (-202, 59).
+found a "face" beginning at (-118, 59).
+found a "face" beginning at (-117, 59).
+found a "face" beginning at (-402, 60).
+found a "face" beginning at (-401, 60).
+found a "face" beginning at (-117, 60).
+found a "face" beginning at (-403, 61).
+found a "face" beginning at (-402, 61).
+found a "face" beginning at (-401, 61).
+found a "face" beginning at (-401, 62).
+found a "face" beginning at (-329, 62).
+found a "face" beginning at (-329, 63).
+found a "face" beginning at (-614, 73).
+found a "face" beginning at (-613, 73).
+found a "face" beginning at (-615, 74).
+found a "face" beginning at (-614, 74).
+found a "face" beginning at (-465, 76).
+found a "face" beginning at (-452, 110).
+found a "face" beginning at (-451, 110).
+found a "face" beginning at (-453, 111).
+found a "face" beginning at (-452, 111).
+found a "face" beginning at (-451, 111).
+found a "face" beginning at (-450, 111).
+found a "face" beginning at (-452, 112).
+found a "face" beginning at (-451, 112).
+found a "face" beginning at (-811, 113).
+found a "face" beginning at (-378, 113).
+found a "face" beginning at (-377, 113).
+found a "face" beginning at (-811, 114).
+found a "face" beginning at (-378, 114).
+found a "face" beginning at (-377, 114).
+found a "face" beginning at (-553, 116).
+found a "face" beginning at (-649, 117).
+found a "face" beginning at (-648, 117).
+found a "face" beginning at (-647, 117).
+found a "face" beginning at (-300, 118).
+found a "face" beginning at (-299, 118).
+found a "face" beginning at (-122, 125).
+found a "face" beginning at (-734, 126).
+found a "face" beginning at (-733, 126).
+found a "face" beginning at (-734, 127).
+found a "face" beginning at (-733, 127).
+found a "face" beginning at (-253, 141).
+found a "face" beginning at (-252, 142).
+found a "face" beginning at (-783, 143).
+found a "face" beginning at (-782, 143).
+found a "face" beginning at (-783, 144).
+found a "face" beginning at (-782, 144).
+found a "face" beginning at (-609, 145).
+found a "face" beginning at (-608, 145).
+found a "face" beginning at (-607, 145).
+found a "face" beginning at (-608, 146).
+found a "face" beginning at (-514, 147).
+found a "face" beginning at (-695, 149).
+detecting faces, iter := 3
+Scaling factor: 1.440000; number of detection windows: 222264.
+Number of GPU threads that claim to contain faces (post-seg 1): 278.
+Number of GPU threads that claim to contain faces (post-seg 2): 213.
+Number of GPU threads that claim to contain faces (post-seg 3): 171.
+Number of GPU threads that claim to contain faces (post-seg 4): 157.
+Number of GPU threads that claim to contain faces (post-seg 5): 139.
+Number of GPU threads that claim to contain faces: 139.
+found a "face" beginning at (-132, 25).
+found a "face" beginning at (-132, 26).
+found a "face" beginning at (-131, 26).
+found a "face" beginning at (-601, 29).
+found a "face" beginning at (-600, 29).
+found a "face" beginning at (-599, 29).
+found a "face" beginning at (-550, 44).
+found a "face" beginning at (-550, 45).
+found a "face" beginning at (-549, 45).
+found a "face" beginning at (-171, 47).
+found a "face" beginning at (-100, 47).
+found a "face" beginning at (-99, 47).
+found a "face" beginning at (-337, 48).
+found a "face" beginning at (-336, 48).
+found a "face" beginning at (-335, 48).
+found a "face" beginning at (-101, 48).
+found a "face" beginning at (-100, 48).
+found a "face" beginning at (-99, 48).
+found a "face" beginning at (-338, 49).
+found a "face" beginning at (-337, 49).
+found a "face" beginning at (-336, 49).
+found a "face" beginning at (-335, 49).
+found a "face" beginning at (-221, 49).
+found a "face" beginning at (-220, 49).
+found a "face" beginning at (-337, 50).
+found a "face" beginning at (-277, 50).
+found a "face" beginning at (-276, 50).
+found a "face" beginning at (-220, 50).
+found a "face" beginning at (-277, 51).
+found a "face" beginning at (-276, 51).
+found a "face" beginning at (-275, 51).
+found a "face" beginning at (-455, 56).
+found a "face" beginning at (-454, 56).
+found a "face" beginning at (-453, 56).
+found a "face" beginning at (-456, 57).
+found a "face" beginning at (-455, 57).
+found a "face" beginning at (-454, 57).
+found a "face" beginning at (-453, 57).
+found a "face" beginning at (-514, 59).
+found a "face" beginning at (-513, 59).
+found a "face" beginning at (-512, 59).
+found a "face" beginning at (-514, 60).
+found a "face" beginning at (-513, 60).
+found a "face" beginning at (-512, 60).
+found a "face" beginning at (-390, 61).
+found a "face" beginning at (-389, 61).
+found a "face" beginning at (-380, 90).
+found a "face" beginning at (-379, 90).
+found a "face" beginning at (-378, 90).
+found a "face" beginning at (-377, 90).
+found a "face" beginning at (-380, 91).
+found a "face" beginning at (-379, 91).
+found a "face" beginning at (-378, 91).
+found a "face" beginning at (-377, 91).
+found a "face" beginning at (-678, 92).
+found a "face" beginning at (-379, 92).
+found a "face" beginning at (-378, 92).
+found a "face" beginning at (-377, 92).
+found a "face" beginning at (-318, 92).
+found a "face" beginning at (-317, 92).
+found a "face" beginning at (-316, 92).
+found a "face" beginning at (-315, 92).
+found a "face" beginning at (-679, 93).
+found a "face" beginning at (-678, 93).
+found a "face" beginning at (-677, 93).
+found a "face" beginning at (-318, 93).
+found a "face" beginning at (-317, 93).
+found a "face" beginning at (-316, 93).
+found a "face" beginning at (-315, 93).
+found a "face" beginning at (-464, 94).
+found a "face" beginning at (-318, 94).
+found a "face" beginning at (-317, 94).
+found a "face" beginning at (-542, 95).
+found a "face" beginning at (-541, 95).
+found a "face" beginning at (-464, 95).
+found a "face" beginning at (-463, 95).
+found a "face" beginning at (-462, 95).
+found a "face" beginning at (-543, 96).
+found a "face" beginning at (-542, 96).
+found a "face" beginning at (-541, 96).
+found a "face" beginning at (-540, 96).
+found a "face" beginning at (-465, 96).
+found a "face" beginning at (-464, 96).
+found a "face" beginning at (-463, 96).
+found a "face" beginning at (-462, 96).
+found a "face" beginning at (-251, 96).
+found a "face" beginning at (-252, 97).
+found a "face" beginning at (-251, 97).
+found a "face" beginning at (-250, 97).
+found a "face" beginning at (-252, 98).
+found a "face" beginning at (-251, 98).
+found a "face" beginning at (-250, 98).
+found a "face" beginning at (-175, 99).
+found a "face" beginning at (-174, 99).
+found a "face" beginning at (-173, 99).
+found a "face" beginning at (-172, 99).
+found a "face" beginning at (-175, 100).
+found a "face" beginning at (-174, 100).
+found a "face" beginning at (-173, 100).
+found a "face" beginning at (-104, 102).
+found a "face" beginning at (-103, 102).
+found a "face" beginning at (-102, 102).
+found a "face" beginning at (-105, 103).
+found a "face" beginning at (-104, 103).
+found a "face" beginning at (-103, 103).
+found a "face" beginning at (-102, 103).
+found a "face" beginning at (-613, 104).
+found a "face" beginning at (-103, 104).
+found a "face" beginning at (-336, 117).
+found a "face" beginning at (-335, 117).
+found a "face" beginning at (-655, 118).
+found a "face" beginning at (-654, 118).
+found a "face" beginning at (-335, 118).
+found a "face" beginning at (-274, 118).
+found a "face" beginning at (-273, 118).
+found a "face" beginning at (-656, 119).
+found a "face" beginning at (-655, 119).
+found a "face" beginning at (-654, 119).
+found a "face" beginning at (-653, 119).
+found a "face" beginning at (-509, 119).
+found a "face" beginning at (-508, 119).
+found a "face" beginning at (-507, 119).
+found a "face" beginning at (-510, 120).
+found a "face" beginning at (-509, 120).
+found a "face" beginning at (-508, 120).
+found a "face" beginning at (-132, 121).
+found a "face" beginning at (-583, 122).
+found a "face" beginning at (-582, 122).
+found a "face" beginning at (-581, 122).
+found a "face" beginning at (-133, 122).
+found a "face" beginning at (-132, 122).
+found a "face" beginning at (-131, 122).
+found a "face" beginning at (-583, 123).
+found a "face" beginning at (-582, 123).
+found a "face" beginning at (-581, 123).
+found a "face" beginning at (-132, 123).
+found a "face" beginning at (-78, 131).
+found a "face" beginning at (-77, 131).
+found a "face" beginning at (-76, 131).
+detecting faces, iter := 4
+Scaling factor: 1.728000; number of detection windows: 151088.
+Number of GPU threads that claim to contain faces (post-seg 1): 234.
+Number of GPU threads that claim to contain faces (post-seg 2): 165.
+Number of GPU threads that claim to contain faces (post-seg 3): 125.
+Number of GPU threads that claim to contain faces (post-seg 4): 107.
+Number of GPU threads that claim to contain faces (post-seg 5): 87.
+Number of GPU threads that claim to contain faces: 87.
+found a "face" beginning at (-19, 31).
+found a "face" beginning at (-18, 31).
+found a "face" beginning at (-186, 39).
+found a "face" beginning at (-232, 40).
+found a "face" beginning at (-187, 40).
+found a "face" beginning at (-186, 40).
+found a "face" beginning at (-381, 45).
+found a "face" beginning at (-380, 45).
+found a "face" beginning at (-317, 73).
+found a "face" beginning at (-318, 74).
+found a "face" beginning at (-317, 74).
+found a "face" beginning at (-267, 75).
+found a "face" beginning at (-266, 75).
+found a "face" beginning at (-265, 75).
+found a "face" beginning at (-567, 76).
+found a "face" beginning at (-388, 76).
+found a "face" beginning at (-267, 76).
+found a "face" beginning at (-266, 76).
+found a "face" beginning at (-265, 76).
+found a "face" beginning at (-390, 77).
+found a "face" beginning at (-389, 77).
+found a "face" beginning at (-388, 77).
+found a "face" beginning at (-387, 77).
+found a "face" beginning at (-454, 78).
+found a "face" beginning at (-453, 78).
+found a "face" beginning at (-389, 78).
+found a "face" beginning at (-388, 78).
+found a "face" beginning at (-387, 78).
+found a "face" beginning at (-212, 78).
+found a "face" beginning at (-211, 78).
+found a "face" beginning at (-212, 79).
+found a "face" beginning at (-211, 79).
+found a "face" beginning at (-210, 79).
+found a "face" beginning at (-212, 80).
+found a "face" beginning at (-211, 80).
+found a "face" beginning at (-148, 80).
+found a "face" beginning at (-147, 80).
+found a "face" beginning at (-146, 80).
+found a "face" beginning at (-148, 81).
+found a "face" beginning at (-147, 81).
+found a "face" beginning at (-146, 81).
+found a "face" beginning at (-148, 82).
+found a "face" beginning at (-147, 82).
+found a "face" beginning at (-89, 83).
+found a "face" beginning at (-88, 83).
+found a "face" beginning at (-87, 83).
+found a "face" beginning at (-89, 84).
+found a "face" beginning at (-88, 84).
+found a "face" beginning at (-87, 84).
+found a "face" beginning at (-514, 85).
+found a "face" beginning at (-282, 95).
+found a "face" beginning at (-281, 95).
+found a "face" beginning at (-179, 95).
+found a "face" beginning at (-548, 96).
+found a "face" beginning at (-547, 96).
+found a "face" beginning at (-282, 96).
+found a "face" beginning at (-281, 96).
+found a "face" beginning at (-231, 96).
+found a "face" beginning at (-230, 96).
+found a "face" beginning at (-229, 96).
+found a "face" beginning at (-228, 96).
+found a "face" beginning at (-180, 96).
+found a "face" beginning at (-179, 96).
+found a "face" beginning at (-178, 96).
+found a "face" beginning at (-547, 97).
+found a "face" beginning at (-425, 97).
+found a "face" beginning at (-229, 97).
+found a "face" beginning at (-179, 97).
+found a "face" beginning at (-488, 99).
+found a "face" beginning at (-487, 99).
+found a "face" beginning at (-486, 99).
+found a "face" beginning at (-113, 99).
+found a "face" beginning at (-112, 99).
+found a "face" beginning at (-111, 99).
+found a "face" beginning at (-487, 100).
+found a "face" beginning at (-486, 100).
+found a "face" beginning at (-361, 100).
+found a "face" beginning at (-360, 100).
+found a "face" beginning at (-359, 100).
+found a "face" beginning at (-112, 100).
+found a "face" beginning at (-111, 100).
+found a "face" beginning at (-487, 101).
+found a "face" beginning at (-361, 101).
+found a "face" beginning at (-360, 101).
+found a "face" beginning at (-66, 107).
+found a "face" beginning at (-10, 112).
+found a "face" beginning at (-4, 141).
+detecting faces, iter := 5
+Scaling factor: 2.073600; number of detection windows: 102242.
+Number of GPU threads that claim to contain faces (post-seg 1): 144.
+Number of GPU threads that claim to contain faces (post-seg 2): 81.
+Number of GPU threads that claim to contain faces (post-seg 3): 51.
+Number of GPU threads that claim to contain faces (post-seg 4): 42.
+Number of GPU threads that claim to contain faces (post-seg 5): 32.
+Number of GPU threads that claim to contain faces: 32.
+found a "face" beginning at (-266, 60).
+found a "face" beginning at (-325, 62).
+found a "face" beginning at (-325, 63).
+found a "face" beginning at (-381, 64).
+found a "face" beginning at (-380, 64).
+found a "face" beginning at (-125, 66).
+found a "face" beginning at (-124, 66).
+found a "face" beginning at (-125, 67).
+found a "face" beginning at (-124, 67).
+found a "face" beginning at (-76, 67).
+found a "face" beginning at (-151, 77).
+found a "face" beginning at (-150, 77).
+found a "face" beginning at (-237, 78).
+found a "face" beginning at (-236, 78).
+found a "face" beginning at (-152, 78).
+found a "face" beginning at (-151, 78).
+found a "face" beginning at (-150, 78).
+found a "face" beginning at (-149, 78).
+found a "face" beginning at (-237, 79).
+found a "face" beginning at (-96, 80).
+found a "face" beginning at (-95, 80).
+found a "face" beginning at (-303, 81).
+found a "face" beginning at (-302, 81).
+found a "face" beginning at (-301, 81).
+found a "face" beginning at (-94, 81).
+found a "face" beginning at (-406, 82).
+found a "face" beginning at (-302, 82).
+found a "face" beginning at (-301, 82).
+found a "face" beginning at (-301, 83).
+found a "face" beginning at (-1, 97).
+found a "face" beginning at (-23, 115).
+found a "face" beginning at (-22, 115).
+detecting faces, iter := 6
+Scaling factor: 2.488320; number of detection windows: 68499.
+Number of GPU threads that claim to contain faces (post-seg 1): 57.
+Number of GPU threads that claim to contain faces (post-seg 2): 23.
+Number of GPU threads that claim to contain faces (post-seg 3): 15.
+Number of GPU threads that claim to contain faces (post-seg 4): 12.
+Number of GPU threads that claim to contain faces (post-seg 5): 9.
+Number of GPU threads that claim to contain faces: 9.
+found a "face" beginning at (-274, 51).
+found a "face" beginning at (-272, 51).
+found a "face" beginning at (-106, 53).
+found a "face" beginning at (-341, 65).
+found a "face" beginning at (-254, 65).
+found a "face" beginning at (-253, 65).
+found a "face" beginning at (-12, 97).
+found a "face" beginning at (-23, 138).
+found a "face" beginning at (-22, 138).
+detecting faces, iter := 7
+Scaling factor: 2.985985; number of detection windows: 45936.
+Number of GPU threads that claim to contain faces (post-seg 1): 11.
+Number of GPU threads that claim to contain faces (post-seg 2): 1.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 8
+Scaling factor: 3.583182; number of detection windows: 30392.
+Number of GPU threads that claim to contain faces (post-seg 1): 11.
+Number of GPU threads that claim to contain faces (post-seg 2): 1.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 9
+Scaling factor: 4.299818; number of detection windows: 19902.
+Number of GPU threads that claim to contain faces (post-seg 1): 4.
+Number of GPU threads that claim to contain faces (post-seg 2): 2.
+Number of GPU threads that claim to contain faces (post-seg 3): 1.
+Number of GPU threads that claim to contain faces (post-seg 4): 1.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 10
+Scaling factor: 5.159782; number of detection windows: 12775.
+Number of GPU threads that claim to contain faces (post-seg 1): 2.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 11
+Scaling factor: 6.191739; number of detection windows: 8094.
+Number of GPU threads that claim to contain faces (post-seg 1): 5.
+Number of GPU threads that claim to contain faces (post-seg 2): 1.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 12
+Scaling factor: 7.430087; number of detection windows: 5016.
+Number of GPU threads that claim to contain faces (post-seg 1): 0.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 13
+Scaling factor: 8.916104; number of detection windows: 3003.
+Number of GPU threads that claim to contain faces (post-seg 1): 1.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 14
+Scaling factor: 10.699326; number of detection windows: 1656.
+Number of GPU threads that claim to contain faces (post-seg 1): 6.
+Number of GPU threads that claim to contain faces (post-seg 2): 1.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 15
+Scaling factor: 12.839191; number of detection windows: 840.
+Number of GPU threads that claim to contain faces (post-seg 1): 2.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 16
+Scaling factor: 15.407030; number of detection windows: 387.
+Number of GPU threads that claim to contain faces (post-seg 1): 0.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+detecting faces, iter := 17
+Scaling factor: 18.488438; number of detection windows: 128.
+Number of GPU threads that claim to contain faces (post-seg 1): 0.
+Number of GPU threads that claim to contain faces (post-seg 2): 0.
+Number of GPU threads that claim to contain faces (post-seg 3): 0.
+Number of GPU threads that claim to contain faces (post-seg 4): 0.
+Number of GPU threads that claim to contain faces (post-seg 5): 0.
+Number of GPU threads that claim to contain faces: 0.
+The total elapsed time for detectObjects() is : 0.356296 seconds
+-- detected 32 faces --
+-- saving output --
+-- image saved --
