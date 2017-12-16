@@ -2,3 +2,5 @@
 vj
 *.swp
 tags
+images/**
+output.pgm

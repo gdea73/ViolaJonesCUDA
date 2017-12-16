@@ -1,0 +1,9 @@
+Average time it takes dlib to run face_detection_ex on the Solvay conference jpg vs. image size.
+Image dimensions	/ Average detection time (s)
+1024x500			| 1.276
+1280x626			| 1.160
+1536x750			| 1.667
+1850x900			| 2.396
+2200x1080			| 3.416
+2650x1300			| 4.947
+3180x1560			| 7.137

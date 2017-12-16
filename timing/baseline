@@ -1,0 +1,31 @@
+-- entering main function --
+-- loading image --
+
+Reading image file: Face.pgm
+-- loading cascade classifier --
+-- detecting faces --
+detecting faces, iter := 1
+detecting faces, iter := 2
+detecting faces, iter := 3
+detecting faces, iter := 4
+detecting faces, iter := 5
+detecting faces, iter := 6
+detecting faces, iter := 7
+detecting faces, iter := 8
+detecting faces, iter := 9
+detecting faces, iter := 10
+detecting faces, iter := 11
+detecting faces, iter := 12
+detecting faces, iter := 13
+detecting faces, iter := 14
+detecting faces, iter := 15
+detecting faces, iter := 16
+detecting faces, iter := 17
+detecting faces, iter := 18
+-- detected 29 faces --
+-- saving output --
+-- image saved --
+
+real	0m5.224s
+user	0m3.254s
+sys	0m1.569s
