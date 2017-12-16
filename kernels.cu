@@ -19,6 +19,7 @@
 	} while (0)
 
 #include <stdint.h>
+#include "segments.h"
 
 // function prototypes
 __device__ void row_scan(int *in_data, int *out_data, int width);
@@ -27,39 +28,6 @@ __device__ void transpose();
 // read-only memory (from device perspective) for filter stage meta-data
 __constant__ float stage_thresholds[25];
 __constant__ int stage_lengths[25];
-
-/* Cascade segment breakdown:
- * Each segment has a corresponding kernel, of which each thread evaluates
- * one detection window. The set of detection windows passed to successive
- * kernels will decrease as windows are ruled out.
- * 
- * Memory usage based on 18 ints (or floats) per node == 72 B.
- * # / first stage / last stage / SHMEM usage / total nodes (filters)
- * 1 | 1           | 11         | 42 K        | 596
- * 2 | 12          | 15         | 36 K        | 513
- * 3 | 16          | 19         | 44 K        | 620
- * 4 | 20          | 22         | 40 K        | 574
- * 5 | 23          | 25         | 43 K        | 610
- */
-
-// kernel prototypes
-/* __global__ void nearest_neighbor_row_scan_kernel(
-	int in_width, int in_height, int out_width, int out_height,
-	unsigned char *in, unsigned char *scaled, int *sum, int *squ
-);
-__global__ void col_scan_kernel(
-	MyImage *in_scaled, MyIntImage *sum, MyIntImage *squ
-);
-__global__ void cascade_segment1_kernel(
-); */
-
-__device__ void row_scan(int *in_data, int *out_data, int width) {
-
-}
-
-__device__ void transpose() {
-
-}
 
 __global__ void nearest_neighbor_row_scan_kernel(
 	int in_width, int in_height, int out_width, int out_height,
@@ -91,8 +59,6 @@ __global__ void col_scan_kernel(
 
 // The pointer *integral_data holds the address of the top-left coordinate
 // of the rectangle to be evaluated.
-// TODO: address memory coalescing issues when
-// shifting between rows of the detection window.
 // TODO: evaluate register limit issues vs performance increase with __forceinline__
 __device__ float eval_weak_classifier(
 	float std_dev, int *integral_data, int filter_index,
@@ -153,13 +119,14 @@ __global__ void cascade_segment1_kernel(
 	// this flattened float array is in the same format as class.txt;
 	// coordinates of rectangles do not need to be stored as floats,
 	// unless all the data is kept in this single array.
-	__shared__ float shared_stage_data[18 * 596];
-	for (i = 0; i < 10; i++) {
+	__shared__ float shared_stage_data[18 * SEG1_NODES];
+	// every thread will load 4 words into SHMEM
+	for (i = 0; i < SEG1_MIN_WORDS_PER_THREAD; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
 	}
-	// some divergence is inevitable here
-	if (i * 1024 + flattened_thread_id < 18 * 596) {
+	// some threads (about half) will load a fifth
+	if (i * 1024 + flattened_thread_id < 18 * SEG1_NODES) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];
 	}
@@ -199,10 +166,6 @@ __global__ void cascade_segment1_kernel(
 	EVAL_STAGE(5);
 	EVAL_STAGE(6);
 	EVAL_STAGE(7);
-	EVAL_STAGE(8);
-	EVAL_STAGE(9);
-	EVAL_STAGE(10);
-	EVAL_STAGE(11);
 	// the result array is a large, flattened 2D array, and the unique index
 	// is retrieved from the thread's coordinates within the grid.
 	int result_index = width * window_start_y + window_start_x;
@@ -215,13 +178,71 @@ __global__ void cascade_segment2_kernel(
 ) {
 	int i;
 	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
-	__shared__ float shared_stage_data[18 * 513];
-	for (i = 0; i < 9; i++) {
+	__shared__ float shared_stage_data[18 * SEG2_NODES];
+	// every thread will load 6 words into SHMEM
+	for (i = 0; i < SEG2_MIN_WORDS_PER_THREAD; i++) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];	
+	}
+	// some threads (about half) will load a seventh word
+	if (i * 1024 + flattened_thread_id < 18 * SEG2_NODES) {
+		shared_stage_data[flattened_thread_id + i * 1024] =
+			stage_data[flattened_thread_id + i * 1024];
+	}
+	__syncthreads();
+
+	int window_start_x = blockDim.x * blockIdx.x + threadIdx.x;
+	int window_start_y = blockDim.y * blockIdx.y + threadIdx.y;
+	if (window_start_x > width - 24 || window_start_y > height - 24) {
+		// edge case: this window lies outside the image boundaries
+		return;
+	}
+	
+	// FIXME: huge divergence until re-grid
+	// see comments in haar.cu:scale_image_invoker()
+	int result_index = width * window_start_y + window_start_x;
+	if (!results[result_index]) {
+		return;
+	}
+	// calculate the standard deviation of the pixel values in the window
+	int img_start_index = width * window_start_y + window_start_x;
+	unsigned int integral = sum[img_start_index + width * 23 + 23]
+				  - sum[img_start_index + width * 23]
+				  - sum[img_start_index + 23] + sum[img_start_index];
+	unsigned int square_integral = squ[img_start_index + width * 23 + 23]
+				  - squ[img_start_index + width * 23]
+				  - squ[img_start_index + 23] + squ[img_start_index];
+	float std_dev = square_integral * 24 * 24 - integral * integral;
+	if (std_dev > 0) {
+		std_dev = sqrtf(std_dev);
+	} else {
+		std_dev = 1;
+	}
+
+	uint8_t isFaceCandidate = 1;
+	int filter_index = 0;
+	// The EVAL_STAGE(N) macro eliminates the need to write 25 identical
+	// for loops, threshold checks, &c.
+	float stage_sum;
+	EVAL_STAGE(8);
+	EVAL_STAGE(9);
+	EVAL_STAGE(10);
+	EVAL_STAGE(11);
+	results[result_index] = isFaceCandidate;
+}
+__global__ void cascade_segment3_kernel(
+	int *sum, int *squ, uint8_t *results,
+	float *stage_data, int width, int height
+) {
+	int i;
+	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
+	__shared__ float shared_stage_data[18 * SEG3_NODES];
+	for (i = 0; i < SEG3_MIN_WORDS_PER_THREAD; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + flattened_thread_id < 18 * 513) {
+	if (i * 1024 + flattened_thread_id < 18 * SEG3_NODES) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];
 	}
@@ -267,19 +288,19 @@ __global__ void cascade_segment2_kernel(
 	results[result_index] = isFaceCandidate;
 }
 
-__global__ void cascade_segment3_kernel(
+__global__ void cascade_segment4_kernel(
 	int *sum, int *squ, uint8_t *results,
 	float *stage_data, int width, int height
 ) {
 	int i;
 	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
-	__shared__ float shared_stage_data[18 * 620];
-	for (i = 0; i < 10; i++) {
+	__shared__ float shared_stage_data[18 * SEG4_NODES];
+	for (i = 0; i < SEG4_MIN_WORDS_PER_THREAD; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + flattened_thread_id < 18 * 620) {
+	if (i * 1024 + flattened_thread_id < 18 * SEG4_NODES) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];
 	}
@@ -323,19 +344,19 @@ __global__ void cascade_segment3_kernel(
 	results[result_index] = isFaceCandidate;
 }
 
-__global__ void cascade_segment4_kernel(
+__global__ void cascade_segment5_kernel(
 	int *sum, int *squ, uint8_t *results,
 	float *stage_data, int width, int height
 ) {
 	int i;
 	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
-	__shared__ float shared_stage_data[18 * 574];
-	for (i = 0; i < 10; i++) {
+	__shared__ float shared_stage_data[18 * SEG5_NODES];
+	for (i = 0; i < SEG5_MIN_WORDS_PER_THREAD; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + flattened_thread_id < 18 * 574) {
+	if (i * 1024 + flattened_thread_id < 18 * SEG5_NODES) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];
 	}
@@ -378,19 +399,19 @@ __global__ void cascade_segment4_kernel(
 	results[result_index] = isFaceCandidate;
 }
 
-__global__ void cascade_segment5_kernel(
+__global__ void cascade_segment6_kernel(
 	int *sum, int *squ, uint8_t *results,
 	float *stage_data, int width, int height
 ) {
 	int i;
-	__shared__ float shared_stage_data[18 * 610];
+	__shared__ float shared_stage_data[18 * SEG6_NODES];
 	int flattened_thread_id = blockDim.x * threadIdx.y + threadIdx.x;
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < SEG6_MIN_WORDS_PER_THREAD; i++) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];	
 	}
 	// some divergence is inevitable here
-	if (i * 1024 + flattened_thread_id < 18 * 610) {
+	if (i * 1024 + flattened_thread_id < 18 * SEG6_NODES) {
 		shared_stage_data[flattened_thread_id + i * 1024] =
 			stage_data[flattened_thread_id + i * 1024];
 	}
