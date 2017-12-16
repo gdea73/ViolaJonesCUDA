@@ -259,6 +259,8 @@ void scale_image_invoker(
 		cudaMalloc((void **) &squ_GPU, sum_area * sizeof(int));
 		cudaMalloc((void **) &results, n_windows * sizeof(uint8_t));
 	}
+	// the results flags need to be reset between scales
+	cudaMemset(results, 0, n_windows * sizeof(uint8_t));
 	face_thread_IDs = (int *) calloc(n_windows, sizeof(int));
 	results_host = (uint8_t *) calloc(n_windows, sizeof(uint8_t));
 	cudaMemcpy(sum_GPU, cascade->sum.data, sum_area * sizeof(int),
@@ -271,58 +273,37 @@ void scale_image_invoker(
 		sum_GPU, squ_GPU, results, stage_data_GPU, sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
-	// For testing the first segment, it would be challenging to
-	// return to processing the rest on the CPU (as the data structures
-	// differ greatly). Instead, we can launch just as many threads for
-	// each kernel, and accept the performance hit of many of those threads
-	// terminating after failing the check set in results[] by the previous
-	// stage.
-	/* prototype of implementation for reducing number of threads for subsequent
-	 * segments
-	int n_remaining = 0;
-	// cudamemcpy to host
-	for (int i = 0; i < n_windows * results; i++) {
-	// calc remaining on host
-		remaining_candidates[n_remaining++]
-	}
-	// cudamemcpy back to device, pass that pointer to next kernel
-	dim3 blockDims(1024, 1, 1);
-	n_blocks_x = n_remaining / 1024;
-	n_blocks_x = (n_remaining % 1024) ? n_blocks_x + 1 : n_blocks_x;
-	*/
 	cascade_segment2_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU + 18 * SEG1_NODES, sum_width, sum_height
+		sum_GPU, squ_GPU, results, stage_data_GPU + 18 * SEG1_NODES,
+		sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment3_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES), sum_width, sum_height
+		sum_GPU, squ_GPU, results,
+		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES), sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment4_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results, stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES + SEG3_NODES),
+		sum_GPU, squ_GPU, results,
+		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES + SEG3_NODES),
 		sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
 	cascade_segment5_kernel<<<gridDims, blockDims>>>(
 		sum_GPU, squ_GPU, results,
-		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES + SEG3_NODES + SEG4_NODES), sum_width, sum_height
-	);
-	cudaDeviceSynchronize();
-	n_faces = 0;
-	cudaMemcpy(results_host, results, n_windows * sizeof(uint8_t),
-			   cudaMemcpyDeviceToHost);
-	for (int i = 0; i < n_windows; i++) {
-		if (!results_host[i]) { continue; }
-		face_thread_IDs[n_faces++] = i;
-	}
-	printf("Number of GPU threads that claim to contain faces (post-seg 5): %d.\n", n_faces);
-	cascade_segment6_kernel<<<gridDims, blockDims>>>(
-		sum_GPU, squ_GPU, results,
-		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES + SEG3_NODES + SEG4_NODES + SEG5_NODES),
+		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES
+							   + SEG3_NODES + SEG4_NODES),
 		sum_width, sum_height
 	);
 	cudaDeviceSynchronize();
-	n_faces = 0;
+	cascade_segment6_kernel<<<gridDims, blockDims>>>(
+		sum_GPU, squ_GPU, results,
+		stage_data_GPU + 18 * (SEG1_NODES + SEG2_NODES + SEG3_NODES
+							   + SEG4_NODES + SEG5_NODES),
+		sum_width, sum_height
+	);
+	cudaDeviceSynchronize();
+	int n_faces = 0;
 	cudaMemcpy(results_host, results, n_windows * sizeof(uint8_t),
 			   cudaMemcpyDeviceToHost);
 	for (int i = 0; i < n_windows; i++) {
@@ -347,12 +328,13 @@ void scale_image_invoker(
 	printf("Number of GPU threads that claim to contain faces: %d.\n", n_faces);
 	std::vector<MyRect> *face_vector = &face_vector_output;
 	for (int i = 0; i < n_faces; i++) {
-		int window_start_y = (int) (face_thread_IDs[i] / cascade->sum.width) + 1;
-		int window_start_x = (int) (face_thread_IDs[i] - cascade->sum.width * (window_start_y - 1)) + 1;
+		int window_start_y = face_thread_IDs[i] / cascade->sum.width;
+		int window_start_x = face_thread_IDs[i] - cascade->sum.width
+						   * window_start_y;
 		// int window_start_x = window_start_y % cascade->sum.width;
 		if (window_start_x < 0 || window_start_x > cascade->sum.width - 24
 			|| window_start_y > cascade->sum.height - 24) {
-			// printf("edge rectangle detected (%d, %d)\n", window_start_x, window_start_y);
+			printf("edge rectangle detected (%d, %d)\n", window_start_x, window_start_y);
 		} else {
 			// printf("found a face beginning at (%d, %d).\n",
 				   //myRound(window_start_x * factor), myRound(window_start_y * factor));
