@@ -209,8 +209,7 @@ int partition(std::vector<MyRect>& _vec, std::vector<int>& labels, float eps)
 
 
 /* draw white bounding boxes around detected faces */
-void drawRectangle(MyImage* image, MyRect r)
-{
+void drawRectangle(MyImage* image, MyRect r) {
 	int i;
 	int col = image->width;
 
@@ -230,5 +229,4 @@ void drawRectangle(MyImage* image, MyRect r)
 	{
 		image->data[col*(r.y + r.height - i) + r.x] = 255;
 	}
-
 }

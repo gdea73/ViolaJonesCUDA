@@ -39,17 +39,16 @@
 
 #include <time.h>
 #include <sys/time.h>
-struct timeval start_time, end_time;
-
+#include "timers.h"
 
 using namespace std;
 
+int main (int argc, char *argv[]) {
+	startTimer(0);
 
-int main (int argc, char *argv[]) 
-{
-
-	double start_count , end_count;
-        double elapsed_time;
+	startTimer(4);
+	init_GPU();
+	stopTimer(4);
 
 	int flag;
 	
@@ -73,12 +72,14 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
+	startTimer(2);
 	flag = readPgm(argv[1], image);
 	if (flag == -1)
 	{
 		printf( "Unable to open input image\n");
 		return 1;
 	}
+	stopTimer(2);
 
 	printf("-- loading cascade classifier --\r\n");
 
@@ -93,40 +94,23 @@ int main (int argc, char *argv[])
 	cascade->orig_window_size.height = 24;
 	cascade->orig_window_size.width = 24;
 
-
-#ifdef USE_CUDA
-	gettimeofday(&start_time,NULL);
+	startTimer(3);
 	read_text_classifiers();
-        gettimeofday(&end_time,NULL);
-        start_count = (double) start_time.tv_sec + 1.e-6 * (double) start_time.tv_usec;
-        end_count = (double) end_time.tv_sec + 1.e-6 * (double) end_time.tv_usec;
-        elapsed_time = (end_count - start_count);
-        printf("The total elapsed time for read_text_classifiers() is : %f seconds\n",elapsed_time);
-
-#else
-	readTextClassifier();
-#endif
-	
+	stopTimer(3);
 
 	std::vector<MyRect> result;
 
 	printf("-- detecting faces --\r\n");
 
-	gettimeofday(&start_time,NULL);
-        result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
-        gettimeofday(&end_time,NULL);
-        start_count = (double) start_time.tv_sec + 1.e-6 * (double) start_time.tv_usec;
-        end_count = (double) end_time.tv_sec + 1.e-6 * (double) end_time.tv_usec;
-        elapsed_time = (end_count - start_count);
-        printf("The total elapsed time for detectObjects() is : %f seconds\n",elapsed_time);
-
+	startTimer(1);
+	result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
+	stopTimer(1);
 
 	printf("-- detected %d faces --\r\n", result.size());
 
-	for(i = 0; i < result.size(); i++ )
-	{
+	for (i = 0; i < result.size(); i++) {
 		MyRect r = result[i];
-		printf("Face number %d found at coordinates x: %d , y: %d - With width: %d , height: %d\n",i,r.x,r.y,r.width,r.height);
+		// printf("Face number %d found at coordinates x: %d , y: %d - With width: %d , height: %d\n",i,r.x,r.y,r.width,r.height);
 		drawRectangle(image, r);
 	}
 
@@ -135,15 +119,16 @@ int main (int argc, char *argv[])
 
 	printf("-- image saved --\r\n");
 
-	/* delete image and free classifier */
-	#ifdef USE_CUDA
 	free_text_classifiers();
 	free_GPU_pointers();
-	#else
-	releaseTextClassifier();
-	#endif
-	// FIXME: massive memory issues with the image itself
-	// freeImage(image);
+	freeImage(image);
+
+	stopTimer(0);
+	printf("total time in seconds:\n%Lf\n", timediffs[0]);
+	printf("detection time in seconds:\n%Lf\n", timediffs[1]);
+	printf("image loading time in seconds:\n%Lf\n", timediffs[2]);
+	printf("GPU initialization time:\n%Lf\n", timediffs[4]);
+	printf("total time, minus GPU init:\n%Lf\n", timediffs[0] - timediffs[4]);
 
 	return 0;
 }

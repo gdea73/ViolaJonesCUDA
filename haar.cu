@@ -57,11 +57,6 @@
  * need to be splitted or duplicated
  ***********************************/
 static int *stages_array;
-static int *rectangles_array;
-static float *weights_array;
-static float *alpha1_array;
-static float *alpha2_array;
-static float *tree_thresh_array;
 static float *stages_thresh_array;
 static int **scaled_rectangles_array;
 
@@ -74,45 +69,32 @@ static int *remaining_candidates;
 static uint8_t *results;
 static int *sum_GPU, *squ_GPU;
 
-
-int clock_counter = 0;
 int n_features = 0;
-
-
 int iter_counter = 0;
-/* To warm up the gpu */
-void init_gpu(){
 
-	cudaFree(0);
-
-}
 /* compute integral images */
-void integralImages( MyImage *src, MyIntImage *sum, MyIntImage *sqsum );
+void integralImages(MyImage *src, MyIntImage *sum, MyIntImage *sqsum);
 
-/* scale down the image */
-void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect>& _vec);
+/* scale the image down and detect faces at the new scale */
 void scale_image_invoker(
 	myCascade *cascade, float factor, int sum_height,
 	int sum_width, std::vector<MyRect> &face_vector_output
 );
 
 /* compute scaled image */
-void nearestNeighbor (MyImage *src, MyImage *dst);
+void nearestNeighbor(MyImage *src, MyImage *dst);
 
 /* rounding function */
-inline  int  myRound( float value )
-{
+inline int myRound (float value) {
 	return (int)(value + (value >= 0 ? 0.5 : -0.5));
 }
 
-/*******************************************************
- * Function: detectObjects
- * Description: It calls all the major steps
- ******************************************************/
+// // "warms up" GPU; helpful for discounting the 0.5-1s required to "spin up" CUDA
+void init_GPU() {
+	cudaFree(0);
+}
 
-std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize, myCascade* cascade,
-		float scaleFactor, int minNeighbors)
-{
+std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize, myCascade* cascade, float scaleFactor, int minNeighbors) {
 
 	/* group overlaping windows */
 	const float GROUP_EPS = 0.4f;
@@ -241,13 +223,8 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 * Optimization oppurtunity:
 		 * the same cascade filter is invoked each time
 		 ***************************************************/
-		#ifdef USE_CUDA
 		scale_image_invoker(cascade, factor, sum1->height, sum1->width,
 							allCandidates);
-		#else
-		ScaleImage_Invoker(cascade, factor, sum1->height, sum1->width,
-				allCandidates);
-		#endif
 
 	} /* end of the factor loop, finish all scales in pyramid*/
 
@@ -259,338 +236,6 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 	freeSumImage(sum1);
 	freeSumImage(sqsum1);
 	return allCandidates;
-}
-
-/***********************************************
- * Note:
- * The int_sqrt is softwar integer squre root.
- * GPU has hardware for floating squre root (sqrtf).
- * In GPU, it is wise to convert an int variable
- * into floating point, and use HW sqrtf function.
- * More info:
- * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#standard-functions
- **********************************************/
-/*****************************************************
- * The int_sqrt is only used in runCascadeClassifier
- * If you want to replace int_sqrt with HW sqrtf in GPU,
- * simple look into the runCascadeClassifier function.
- *****************************************************/
-unsigned int int_sqrt (unsigned int value)
-{
-	int i;
-	unsigned int a = 0, b = 0, c = 0;
-	for (i=0; i < (32 >> 1); i++)
-	{
-		c<<= 2;
-#define UPPERBITS(value) (value>>30)
-		c += UPPERBITS(value);
-#undef UPPERBITS
-		value <<= 2;
-		a <<= 1;
-		b = (a<<1) | 1;
-		if (c >= b)
-		{
-			c -= b;
-			a++;
-		}
-	}
-	return a;
-}
-
-
-void setImageForCascadeClassifier (myCascade* _cascade, MyIntImage* _sum, MyIntImage *_sqsum) {
-	MyIntImage *sum = _sum;
-	MyIntImage *sqsum = _sqsum;
-	myCascade* cascade = _cascade;
-	int i, j, k;
-	MyRect equRect;
-	int r_index = 0;
-	int w_index = 0;
-	MyRect tr;
-
-	cascade->sum = *sum;
-	cascade->sqsum = *sqsum;
-
-	equRect.x = equRect.y = 0;
-	equRect.width = cascade->orig_window_size.width;
-	equRect.height = cascade->orig_window_size.height;
-
-	cascade->inv_window_area = equRect.width*equRect.height;
-
-	cascade->p0 = (sum->data) ;
-	cascade->p1 = (sum->data +  equRect.width - 1) ;
-	cascade->p2 = (sum->data + sum->width*(equRect.height - 1));
-	cascade->p3 = (sum->data + sum->width*(equRect.height - 1) + equRect.width - 1);
-	cascade->pq0 = (sqsum->data);
-	cascade->pq1 = (sqsum->data +  equRect.width - 1) ;
-	cascade->pq2 = (sqsum->data + sqsum->width*(equRect.height - 1));
-	cascade->pq3 = (sqsum->data + sqsum->width*(equRect.height - 1) + equRect.width - 1);
-
-	/****************************************
-	 * Load the index of the four corners 
-	 * of the filter rectangle
-	 **************************************/
-
-	/* loop over the number of stages */
-	for( i = 0; i < cascade->n_stages; i++ )
-	{
-		/* loop over the number of haar features */
-		for( j = 0; j < stages_array[i]; j++ )
-		{
-			int nr = 3;
-			/* loop over the number of rectangles */
-			for( k = 0; k < nr; k++ )
-			{
-				tr.x = rectangles_array[r_index + k*4];
-				tr.width = rectangles_array[r_index + 2 + k*4];
-				tr.y = rectangles_array[r_index + 1 + k*4];
-				tr.height = rectangles_array[r_index + 3 + k*4];
-				if (k < 2)
-				{
-					scaled_rectangles_array[r_index + k*4] = (sum->data + sum->width*(tr.y ) + (tr.x )) ;
-					scaled_rectangles_array[r_index + k*4 + 1] = (sum->data + sum->width*(tr.y ) + (tr.x  + tr.width)) ;
-					scaled_rectangles_array[r_index + k*4 + 2] = (sum->data + sum->width*(tr.y  + tr.height) + (tr.x ));
-					scaled_rectangles_array[r_index + k*4 + 3] = (sum->data + sum->width*(tr.y  + tr.height) + (tr.x  + tr.width));
-				}
-				else
-				{
-					if ((tr.x == 0)&& (tr.y == 0) &&(tr.width == 0) &&(tr.height == 0))
-					{
-						scaled_rectangles_array[r_index + k*4] = NULL ;
-						scaled_rectangles_array[r_index + k*4 + 1] = NULL ;
-						scaled_rectangles_array[r_index + k*4 + 2] = NULL;
-						scaled_rectangles_array[r_index + k*4 + 3] = NULL;
-					}
-					else
-					{
-						scaled_rectangles_array[r_index + k*4] = (sum->data + sum->width*(tr.y ) + (tr.x )) ;
-						scaled_rectangles_array[r_index + k*4 + 1] = (sum->data + sum->width*(tr.y ) + (tr.x  + tr.width)) ;
-						scaled_rectangles_array[r_index + k*4 + 2] = (sum->data + sum->width*(tr.y  + tr.height) + (tr.x ));
-						scaled_rectangles_array[r_index + k*4 + 3] = (sum->data + sum->width*(tr.y  + tr.height) + (tr.x  + tr.width));
-					}
-				} /* end of branch if(k<2) */
-			} /* end of k loop*/
-			r_index+=12;
-			w_index+=3;
-		} /* end of j loop */
-	} /* end i loop */
-}
-
-
-/****************************************************
- * evalWeakClassifier:
- * the actual computation of a haar filter.
- * More info:
- * http://en.wikipedia.org/wiki/Haar-like_features
- ***************************************************/
-inline float evalWeakClassifier (float variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index) {
-	/* the node threshold is multiplied by the standard deviation of the image */
-	float t = tree_thresh_array[tree_index] * variance_norm_factor;
-
-	float sum = (*(scaled_rectangles_array[r_index] + p_offset)
-			- *(scaled_rectangles_array[r_index + 1] + p_offset)
-			- *(scaled_rectangles_array[r_index + 2] + p_offset)
-			+ *(scaled_rectangles_array[r_index + 3] + p_offset))
-		* weights_array[w_index];
-
-
-	sum += (*(scaled_rectangles_array[r_index+4] + p_offset)
-			- *(scaled_rectangles_array[r_index + 5] + p_offset)
-			- *(scaled_rectangles_array[r_index + 6] + p_offset)
-			+ *(scaled_rectangles_array[r_index + 7] + p_offset))
-		* weights_array[w_index + 1];
-
-	if ((scaled_rectangles_array[r_index+8] != NULL))
-		sum += (*(scaled_rectangles_array[r_index+8] + p_offset)
-				- *(scaled_rectangles_array[r_index + 9] + p_offset)
-				- *(scaled_rectangles_array[r_index + 10] + p_offset)
-				+ *(scaled_rectangles_array[r_index + 11] + p_offset))
-			* weights_array[w_index + 2];
-
-	if (sum >= t)
-		return alpha2_array[tree_index];
-	else
-		return alpha1_array[tree_index];
-
-}
-
-
-
-int runCascadeClassifier (myCascade* _cascade, MyPoint pt, int start_stage) {
-	int p_offset, pq_offset;
-	int i, j;
-	float mean;
-	float variance_norm_factor;
-	int haar_counter = 0;
-	int w_index = 0;
-	int r_index = 0;
-	float stage_sum;
-	myCascade* cascade;
-	cascade = _cascade;
-
-	p_offset = pt.y * (cascade->sum.width) + pt.x;
-	pq_offset = pt.y * (cascade->sqsum.width) + pt.x;
-
-	/**************************************************************************
-	 * Image normalization
-	 * mean is the mean of the pixels in the detection window
-	 * cascade->pqi[pq_offset] are the squared pixel values (using the squared integral image)
-	 * inv_window_area is 1 over the total number of pixels in the detection window
-	 *************************************************************************/
-
-	variance_norm_factor =  (cascade->pq0[pq_offset] - cascade->pq1[pq_offset] - cascade->pq2[pq_offset] + cascade->pq3[pq_offset]);
-	mean = (cascade->p0[p_offset] - cascade->p1[p_offset] - cascade->p2[p_offset] + cascade->p3[p_offset]);
-
-	variance_norm_factor = (variance_norm_factor*cascade->inv_window_area);
-	variance_norm_factor =  variance_norm_factor - mean*mean;
-
-	/***********************************************
-	 * Note:
-	 * The int_sqrt is softwar integer squre root.
-	 * GPU has hardware for floating squre root (sqrtf).
-	 * In GPU, it is wise to convert the variance norm
-	 * into floating point, and use HW sqrtf function.
-	 * More info:
-	 * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#standard-functions
-	 **********************************************/
-	if( variance_norm_factor > 0 )
-		variance_norm_factor = sqrt(variance_norm_factor);
-	else
-		variance_norm_factor = 1;
-
-	/**************************************************
-	 * The major computation happens here.
-	 * For each scale in the image pyramid,
-	 * and for each shifted step of the filter,
-	 * send the shifted window through cascade filter.
-	 *
-	 * Note:
-	 *
-	 * Stages in the cascade filter are independent.
-	 * However, a face can be rejected by any stage.
-	 * Running stages in parallel delays the rejection,
-	 * which induces unnecessary computation.
-	 *
-	 * Filters in the same stage are also independent,
-	 * except that filter results need to be merged,
-	 * and compared with a per-stage threshold.
-	 *************************************************/
-	for (i = start_stage; i < cascade->n_stages; i++) {
-		/****************************************************
-		 * A shared variable that induces false dependency
-		 * 
-		 * To avoid it from limiting parallelism,
-		 * we can duplicate it multiple times,
-		 * e.g., using stage_sum_array[number_of_threads].
-		 * Then threads only need to sync at the end
-		 ***************************************************/
-		stage_sum = 0;
-
-		for (j = 0; j < stages_array[i]; j++) {
-			/**************************************************
-			 * Send the shifted window to a haar filter.
-			 **************************************************/
-			stage_sum += evalWeakClassifier(variance_norm_factor, p_offset, haar_counter, w_index, r_index);
-			n_features++;
-			haar_counter++;
-			w_index+=3;
-			r_index+=12;
-		} /* end of j loop */
-
-		/**************************************************************
-		 * threshold of the stage. 
-		 * If the sum is below the threshold, 
-		 * no faces are detected, 
-		 * and the search is abandoned at the i-th stage (-i).
-		 * Otherwise, a face is detected (1)
-		 **************************************************************/
-
-		if (stage_sum < STAGE_THRESH_MULTIPLIER_CPU * stages_thresh_array[i]) {
-			return -i;
-		} /* end of the per-stage thresholding */
-	} /* end of i loop */
-	return 1;
-}
-
-
-void ScaleImage_Invoker (myCascade *_cascade, float _factor, int sum_row, int sum_col, std::vector<MyRect> &_vec) {
-	myCascade* cascade = _cascade;
-
-	float factor = _factor;
-	MyPoint p;
-	int result;
-	int y1, y2, x2, x, y, step;
-	std::vector<MyRect> *vec = &_vec;
-
-	MySize winSize0 = cascade->orig_window_size;
-	MySize winSize;
-
-	winSize.width =  myRound(winSize0.width*factor);
-	winSize.height =  myRound(winSize0.height*factor);
-	y1 = 0;
-
-	/********************************************
-	 * When filter window shifts to image boarder,
-	 * some margin need to be kept
-	 *********************************************/
-	y2 = sum_row - winSize0.height;
-	x2 = sum_col - winSize0.width;
-
-	/********************************************
-	 * Step size of filter window shifting
-	 * Reducing step makes program faster,
-	 * but decreases quality of detection.
-	 * example:
-	 * step = factor > 2 ? 1 : 2;
-	 * 
-	 * For 5kk73, 
-	 * the factor and step can be kept constant,
-	 * unless you want to change input image.
-	 *
-	 * The step size is set to 1 for 5kk73,
-	 * i.e., shift the filter window by 1 pixel.
-	 *******************************************/	
-	step = 1;
-
-	/**********************************************
-	 * Shift the filter window over the image.
-	 * Each shift step is independent.
-	 * Shared data structure may limit parallelism.
-	 *
-	 * Some random hints (may or may not work):
-	 * Split or duplicate data structure.
-	 * Merge functions/loops to increase locality
-	 * Tiling to increase computation-to-memory ratio
-	 *********************************************/
-	for (x = 0; x <= x2; x += step) {
-		for (y = y1; y <= y2; y += step) {
-			p.x = x;
-			p.y = y;
-
-			/*********************************************
-			 * Optimization Oppotunity:
-			 * The same cascade filter is used each time
-			 ********************************************/
-			result = runCascadeClassifier( cascade, p, 0 );
-
-			/*******************************************************
-			 * If a face is detected,
-			 * record the coordinates of the filter window
-			 * the "push_back" function is from std:vec, more info:
-			 * http://en.wikipedia.org/wiki/Sequence_container_(C++)
-			 *
-			 * Note that, if the filter runs on GPUs,
-			 * the push_back operation is not possible on GPUs.
-			 * The GPU may need to use a simpler data structure,
-			 * e.g., an array, to store the coordinates of face,
-			 * which can be later memcpy from GPU to CPU to do push_back
-			 *******************************************************/
-			if (result > 0) {
-				MyRect r = {myRound(x*factor), myRound(y*factor), winSize.width, winSize.height};
-				vec->push_back(r);
-			}
-		}
-	}
 }
 
 void scale_image_invoker(
@@ -751,10 +396,9 @@ void scale_image_invoker(
 /*****************************************************
  * Compute the integral image (and squared integral)
  * Integral image helps quickly sum up an area.
- * More info:
- * http://en.wikipedia.org/wiki/Summed_area_table
+ * TODO: parallelize this
  ****************************************************/
-void integralImages (MyImage *src, MyIntImage *sum, MyIntImage *sqsum) {
+void integralImages(MyImage *src, MyIntImage *sum, MyIntImage *sqsum) {
 	int x, y, s, sq, t, tq;
 	unsigned char it;
 	int height = src->height;
@@ -790,12 +434,10 @@ void integralImages (MyImage *src, MyIntImage *sum, MyIntImage *sqsum) {
 /***********************************************************
  * This function downsample an image using nearest neighbor
  * It is used to build the image pyramid
+ * TODO: parallelize this process
  **********************************************************/
-void nearestNeighbor (MyImage *src, MyImage *dst)
-{
-
-	int y;
-	int j;
+void nearestNeighbor(MyImage *src, MyImage *dst) {
+int y; int j;
 	int x;
 	int i;
 	unsigned char* t;
@@ -1009,148 +651,3 @@ void free_GPU_pointers() {
 	cudaFree(sum_GPU);
 	cudaFree(squ_GPU);
 }
-
-void readTextClassifier() {
-	// number of stages of the cascade classifier
-	int stages;
-	/*total number of weak classifiers (one node each)*/
-	int total_nodes = 0;
-	int i, j, k, l;
-	char mystring [12];
-	int r_index = 0;
-	int w_index = 0;
-	int tree_index = 0;
-	FILE *finfo = fopen("info.txt", "r");
-
-	/**************************************************
-	 * how many stages are in the cascaded filter? 
-	 * the first line of info.txt is the number of stages 
-	 * (in the 5kk73 example, there are 25 stages)
-	 **************************************************/
-	if ( fgets (mystring , 12 , finfo) != NULL )
-	{
-		stages = atoi(mystring);
-	}
-	i = 0;
-
-	stages_array = (int *)malloc(sizeof(int)*stages);
-
-	/**************************************************
-	 * how many filters in each stage? 
-	 * They are specified in info.txt,
-	 * starting from second line.
-	 * (in the 5kk73 example, from line 2 to line 26)
-	 *************************************************/
-	while ( fgets (mystring , 12 , finfo) != NULL )
-	{
-		stages_array[i] = atoi(mystring);
-		total_nodes += stages_array[i];
-		i++;
-	}
-	fclose(finfo);
-
-
-	/* TODO: use matrices where appropriate */
-	/***********************************************
-	 * Allocate a lot of array structures
-	 * Note that, to increase parallelism,
-	 * some arrays need to be splitted or duplicated
-	 **********************************************/
-	rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
-	scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
-	weights_array = (float *)malloc(sizeof(float)*total_nodes*3);
-	alpha1_array = (float*)malloc(sizeof(float)*total_nodes);
-	alpha2_array = (float*)malloc(sizeof(float)*total_nodes);
-	tree_thresh_array = (float*)malloc(sizeof(float)*total_nodes);
-	FILE *fp = fopen("class.txt", "r");
-
-	/******************************************
-	 * Read the filter parameters in class.txt
-	 *
-	 * Each stage of the cascaded filter has:
-	 * 18 parameter per filter x tilter per stage
-	 * + 1 threshold per stage
-	 *
-	 * For example, in 5kk73, 
-	 * the first stage has 9 filters,
-	 * the first stage is specified using
-	 * 18 * 9 + 1 = 163 parameters
-	 * They are line 1 to 163 of class.txt
-	 *
-	 * The 18 parameters for each filter are:
-	 * 1 to 4: coordinates of rectangle 1
-	 * 5: weight of rectangle 1
-	 * 6 to 9: coordinates of rectangle 2
-	 * 10: weight of rectangle 2
-	 * 11 to 14: coordinates of rectangle 3
-	 * 15: weight of rectangle 3
-	 * 16: threshold of the filter
-	 * 17: alpha 1 of the filter
-	 * 18: alpha 2 of the filter
-	 ******************************************/
-
-	/* loop over n of stages */
-	for (i = 0; i < stages; i++)
-	{    /* loop over n of trees */
-		for (j = 0; j < stages_array[i]; j++)
-		{	/* loop over n of rectangular features */
-			for(k = 0; k < 3; k++)
-			{	/* loop over the n of vertices */
-				for (l = 0; l <4; l++)
-				{
-					if (fgets (mystring , 12 , fp) != NULL)
-						rectangles_array[r_index] = atoi(mystring);
-					else
-						break;
-					r_index++;
-				} /* end of l loop */
-				if (fgets (mystring , 12 , fp) != NULL)
-				{
-					// weights_array[w_index] = atoi(mystring);
-					weights_array[w_index] = atof(mystring) / 4096.0;
-					/* Shift value to avoid overflow in the haar evaluation */
-					/*TODO: make more general */
-					/*weights_array[w_index]>>=8; */
-				}
-				else
-					break;
-				w_index++;
-			} /* end of k loop */
-			if (fgets (mystring , 12 , fp) != NULL)
-				tree_thresh_array[tree_index]= atof(mystring) / 256.0;
-			else
-				break;
-			if (fgets (mystring , 12 , fp) != NULL)
-				alpha1_array[tree_index]= atof(mystring) / 256.0;
-			else
-				break;
-			if (fgets (mystring , 12 , fp) != NULL)
-				alpha2_array[tree_index]= atof(mystring) / 256.0;
-			else
-				break;
-			tree_index++;
-			if (j == stages_array[i]-1)
-			{
-				if (fgets (mystring , 12 , fp) != NULL)
-					stages_thresh_array[i] = atof(mystring) / 256.0;
-				else
-					break;
-			}
-		} /* end of j loop */
-	} /* end of i loop */
-	fclose(fp);
-}
-
-
-void releaseTextClassifier()
-{
-	free(stages_array);
-	free(rectangles_array);
-	free(scaled_rectangles_array);
-	free(weights_array);
-	free(tree_thresh_array);
-	free(alpha1_array);
-	free(alpha2_array);
-	free(stages_thresh_array);
-}
-/* End of file. */
