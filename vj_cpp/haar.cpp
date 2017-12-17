@@ -34,6 +34,7 @@
 #include "haar.h"
 #include "image.h"
 #include <stdio.h>
+#include "math.h"
 #include "stdio-wrapper.h"
 #include <time.h>
 #include <sys/times.h>
@@ -52,10 +53,10 @@ struct tms elapsed_time;
 static int *stages_array;
 static int *rectangles_array;
 static float *weights_array;
-static int *alpha1_array;
-static int *alpha2_array;
-static int *tree_thresh_array;
-static int *stages_thresh_array;
+static float *alpha1_array;
+static float *alpha2_array;
+static float *tree_thresh_array;
+static float *stages_thresh_array;
 static int **scaled_rectangles_array;
 
 
@@ -411,13 +412,13 @@ void setImageForCascadeClassifier( myCascade* _cascade, MyIntImage* _sum, MyIntI
  * More info:
  * http://en.wikipedia.org/wiki/Haar-like_features
  ***************************************************/
-inline int evalWeakClassifier(int variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index )
+inline int evalWeakClassifier(float variance_norm_factor, int p_offset, int tree_index, int w_index, int r_index )
 {
 
   /* the node threshold is multiplied by the standard deviation of the image */
-  int t = tree_thresh_array[tree_index] * variance_norm_factor;
+  float t = tree_thresh_array[tree_index] * variance_norm_factor;
 
-  int sum = (*(scaled_rectangles_array[r_index] + p_offset)
+  float sum = (*(scaled_rectangles_array[r_index] + p_offset)
 	     - *(scaled_rectangles_array[r_index + 1] + p_offset)
 	     - *(scaled_rectangles_array[r_index + 2] + p_offset)
 	     + *(scaled_rectangles_array[r_index + 3] + p_offset))
@@ -451,8 +452,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
 
   int p_offset, pq_offset;
   int i, j;
-  unsigned int mean;
-  unsigned int variance_norm_factor;
+  float variance_norm_factor;
   int haar_counter = 0;
   int w_index = 0;
   int r_index = 0;
@@ -470,10 +470,10 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
    * inv_window_area is 1 over the total number of pixels in the detection window
    *************************************************************************/
 
-  variance_norm_factor =  (cascade->pq0[pq_offset] - cascade->pq1[pq_offset] - cascade->pq2[pq_offset] + cascade->pq3[pq_offset]);
-  mean = (cascade->p0[p_offset] - cascade->p1[p_offset] - cascade->p2[p_offset] + cascade->p3[p_offset]);
+  unsigned int square_integral =  (cascade->pq0[pq_offset] - cascade->pq1[pq_offset] - cascade->pq2[pq_offset] + cascade->pq3[pq_offset]);
+  unsigned int mean = (cascade->p0[p_offset] - cascade->p1[p_offset] - cascade->p2[p_offset] + cascade->p3[p_offset]);
 
-  variance_norm_factor = (variance_norm_factor*cascade->inv_window_area);
+  variance_norm_factor = (square_integral*cascade->inv_window_area);
   variance_norm_factor =  variance_norm_factor - mean*mean;
 
   /***********************************************
@@ -486,7 +486,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
    * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#standard-functions
    **********************************************/
   if( variance_norm_factor > 0 )
-    variance_norm_factor = int_sqrt(variance_norm_factor);
+    variance_norm_factor = sqrt(variance_norm_factor);
   else
     variance_norm_factor = 1;
 
@@ -541,7 +541,7 @@ int runCascadeClassifier( myCascade* _cascade, MyPoint pt, int start_stage )
        **************************************************************/
 
       /* the number "0.4" is empirically chosen for 5kk73 */
-      if( stage_sum < 1.28*stages_thresh_array[i] ){
+      if( stage_sum < 0.4*stages_thresh_array[i] ){
 	return -i;
       } /* end of the per-stage thresholding */
     } /* end of i loop */
@@ -605,6 +605,9 @@ void ScaleImage_Invoker( myCascade* _cascade, float _factor, int sum_row, int su
       {
 	p.x = x;
 	p.y = y;
+	if (p.x == 72 && p.y == 144) {
+		printf("72, 144");
+	}
 
 	/*********************************************
 	 * Optimization Oppotunity:
@@ -763,10 +766,10 @@ void readTextClassifier() { // myCascade *cascade) {
   rectangles_array = (int *)malloc(sizeof(int)*total_nodes*12);
   scaled_rectangles_array = (int **)malloc(sizeof(int*)*total_nodes*12);
   weights_array = (float *)malloc(sizeof(float)*total_nodes*3);
-  alpha1_array = (int*)malloc(sizeof(int)*total_nodes);
-  alpha2_array = (int*)malloc(sizeof(int)*total_nodes);
-  tree_thresh_array = (int*)malloc(sizeof(int)*total_nodes);
-  stages_thresh_array = (int*)malloc(sizeof(int)*stages);
+  alpha1_array = (float*)malloc(sizeof(float)*total_nodes);
+  alpha2_array = (float*)malloc(sizeof(float)*total_nodes);
+  tree_thresh_array = (float*)malloc(sizeof(float)*total_nodes);
+  stages_thresh_array = (float*)malloc(sizeof(float)*stages);
   FILE *fp = fopen("class.txt", "r");
 
   /******************************************
@@ -811,7 +814,7 @@ void readTextClassifier() { // myCascade *cascade) {
 		} /* end of l loop */
 	      if (fgets (mystring , 12 , fp) != NULL)
 		{
-		  weights_array[w_index] = atoi(mystring);
+		  weights_array[w_index] = strtof(mystring, NULL);
 		  /* Shift value to avoid overflow in the haar evaluation */
 		  /*TODO: make more general */
 		  weights_array[w_index] = atof(mystring) / 4096.0;
@@ -821,22 +824,22 @@ void readTextClassifier() { // myCascade *cascade) {
 	      w_index++;
 	    } /* end of k loop */
 	  if (fgets (mystring , 12 , fp) != NULL)
-	    tree_thresh_array[tree_index]= atoi(mystring);
+	    tree_thresh_array[tree_index]= strtof(mystring, NULL);
 	  else
 	    break;
 	  if (fgets (mystring , 12 , fp) != NULL)
-	    alpha1_array[tree_index]= atoi(mystring);
+	    alpha1_array[tree_index]= strtof(mystring, NULL);
 	  else
 	    break;
 	  if (fgets (mystring , 12 , fp) != NULL)
-	    alpha2_array[tree_index]= atoi(mystring);
+	    alpha2_array[tree_index]= strtof(mystring, NULL);
 	  else
 	    break;
 	  tree_index++;
 	  if (j == stages_array[i]-1)
 	    {
 	      if (fgets (mystring , 12 , fp) != NULL)
-		stages_thresh_array[i] = atoi(mystring);
+		stages_thresh_array[i] = strtof(mystring, NULL);
 	      else
 		break;
 	    }

@@ -1,0 +1,288 @@
+-- entering main function --
+-- loading image --
+
+Reading image file: Face.pgm
+-- loading cascade classifier --
+-- detecting faces --
+beginning of detectObjects: 943367 µs
+beginning of detectObjects: total 943367 µs
+before mallocing images, sum images: 7 µs
+before mallocing images, sum images: total 943374 µs
+after mallocing images, sum images: 20 µs
+after mallocing images, sum images: total 943394 µs
+beginning of pyramid loop (1): 1 µs
+beginning of pyramid loop (1): total 943395 µs
+before nearest-neighbor (1): 1 µs
+before nearest-neighbor (1): total 943396 µs
+after nearest-neighbor (1): 6582 µs
+after nearest-neighbor (1): total 949978 µs
+before integral image (1): 3 µs
+before integral image (1): total 949981 µs
+after integral image (1): 27663 µs
+after integral image (1): total 977644 µs
+detecting faces, iter := 1
+before cascade (1): 529 µs
+before cascade (1): total 978173 µs
+end of cascade; end of pyramid loop (1): -523967 µs
+end of cascade; end of pyramid loop (1): total 454206 µs
+beginning of pyramid loop (2): 6 µs
+beginning of pyramid loop (2): total 454212 µs
+before nearest-neighbor (2): 2 µs
+before nearest-neighbor (2): total 454214 µs
+after nearest-neighbor (2): 4322 µs
+after nearest-neighbor (2): total 458536 µs
+before integral image (2): 2 µs
+before integral image (2): total 458538 µs
+after integral image (2): 17053 µs
+after integral image (2): total 475591 µs
+detecting faces, iter := 2
+before cascade (2): 364 µs
+before cascade (2): total 475955 µs
+end of cascade; end of pyramid loop (2): 431891 µs
+end of cascade; end of pyramid loop (2): total 907846 µs
+beginning of pyramid loop (3): 7 µs
+beginning of pyramid loop (3): total 907853 µs
+before nearest-neighbor (3): 1 µs
+before nearest-neighbor (3): total 907854 µs
+after nearest-neighbor (3): 3010 µs
+after nearest-neighbor (3): total 910864 µs
+before integral image (3): 2 µs
+before integral image (3): total 910866 µs
+after integral image (3): 11809 µs
+after integral image (3): total 922675 µs
+detecting faces, iter := 3
+before cascade (3): 356 µs
+before cascade (3): total 923031 µs
+end of cascade; end of pyramid loop (3): -299001 µs
+end of cascade; end of pyramid loop (3): total 624030 µs
+beginning of pyramid loop (4): 4 µs
+beginning of pyramid loop (4): total 624034 µs
+before nearest-neighbor (4): 2 µs
+before nearest-neighbor (4): total 624036 µs
+after nearest-neighbor (4): 2101 µs
+after nearest-neighbor (4): total 626137 µs
+before integral image (4): 2 µs
+before integral image (4): total 626139 µs
+after integral image (4): 8190 µs
+after integral image (4): total 634329 µs
+detecting faces, iter := 4
+before cascade (4): 353 µs
+before cascade (4): total 634682 µs
+end of cascade; end of pyramid loop (4): 222588 µs
+end of cascade; end of pyramid loop (4): total 857270 µs
+beginning of pyramid loop (5): 3 µs
+beginning of pyramid loop (5): total 857273 µs
+before nearest-neighbor (5): 2 µs
+before nearest-neighbor (5): total 857275 µs
+after nearest-neighbor (5): 1452 µs
+after nearest-neighbor (5): total 858727 µs
+before integral image (5): 2 µs
+before integral image (5): total 858729 µs
+after integral image (5): 5660 µs
+after integral image (5): total 864389 µs
+detecting faces, iter := 5
+before cascade (5): 349 µs
+before cascade (5): total 864738 µs
+end of cascade; end of pyramid loop (5): -121374 µs
+end of cascade; end of pyramid loop (5): total 743364 µs
+beginning of pyramid loop (6): 3 µs
+beginning of pyramid loop (6): total 743367 µs
+before nearest-neighbor (6): 1 µs
+before nearest-neighbor (6): total 743368 µs
+after nearest-neighbor (6): 1003 µs
+after nearest-neighbor (6): total 744371 µs
+before integral image (6): 2 µs
+before integral image (6): total 744373 µs
+after integral image (6): 3927 µs
+after integral image (6): total 748300 µs
+detecting faces, iter := 6
+before cascade (6): 348 µs
+before cascade (6): total 748648 µs
+end of cascade; end of pyramid loop (6): -365318 µs
+end of cascade; end of pyramid loop (6): total 383330 µs
+beginning of pyramid loop (7): 2 µs
+beginning of pyramid loop (7): total 383332 µs
+before nearest-neighbor (7): 8 µs
+before nearest-neighbor (7): total 383340 µs
+after nearest-neighbor (7): 692 µs
+after nearest-neighbor (7): total 384032 µs
+before integral image (7): 2 µs
+before integral image (7): total 384034 µs
+after integral image (7): 2726 µs
+after integral image (7): total 386760 µs
+detecting faces, iter := 7
+before cascade (7): 351 µs
+before cascade (7): total 387111 µs
+end of cascade; end of pyramid loop (7): 432299 µs
+end of cascade; end of pyramid loop (7): total 819410 µs
+beginning of pyramid loop (8): 3 µs
+beginning of pyramid loop (8): total 819413 µs
+before nearest-neighbor (8): 1 µs
+before nearest-neighbor (8): total 819414 µs
+after nearest-neighbor (8): 493 µs
+after nearest-neighbor (8): total 819907 µs
+before integral image (8): 1 µs
+before integral image (8): total 819908 µs
+after integral image (8): 1897 µs
+after integral image (8): total 821805 µs
+detecting faces, iter := 8
+before cascade (8): 352 µs
+before cascade (8): total 822157 µs
+end of cascade; end of pyramid loop (8): -718535 µs
+end of cascade; end of pyramid loop (8): total 103622 µs
+beginning of pyramid loop (9): 2 µs
+beginning of pyramid loop (9): total 103624 µs
+before nearest-neighbor (9): 1 µs
+before nearest-neighbor (9): total 103625 µs
+after nearest-neighbor (9): 339 µs
+after nearest-neighbor (9): total 103964 µs
+before integral image (9): 1 µs
+before integral image (9): total 103965 µs
+after integral image (9): 1314 µs
+after integral image (9): total 105279 µs
+detecting faces, iter := 9
+before cascade (9): 344 µs
+before cascade (9): total 105623 µs
+end of cascade; end of pyramid loop (9): 187523 µs
+end of cascade; end of pyramid loop (9): total 293146 µs
+beginning of pyramid loop (10): 2 µs
+beginning of pyramid loop (10): total 293148 µs
+before nearest-neighbor (10): 1 µs
+before nearest-neighbor (10): total 293149 µs
+after nearest-neighbor (10): 237 µs
+after nearest-neighbor (10): total 293386 µs
+before integral image (10): 1 µs
+before integral image (10): total 293387 µs
+after integral image (10): 915 µs
+after integral image (10): total 294302 µs
+detecting faces, iter := 10
+before cascade (10): 345 µs
+before cascade (10): total 294647 µs
+end of cascade; end of pyramid loop (10): 128726 µs
+end of cascade; end of pyramid loop (10): total 423373 µs
+beginning of pyramid loop (11): 2 µs
+beginning of pyramid loop (11): total 423375 µs
+before nearest-neighbor (11): 1 µs
+before nearest-neighbor (11): total 423376 µs
+after nearest-neighbor (11): 166 µs
+after nearest-neighbor (11): total 423542 µs
+before integral image (11): 1 µs
+before integral image (11): total 423543 µs
+after integral image (11): 636 µs
+after integral image (11): total 424179 µs
+detecting faces, iter := 11
+before cascade (11): 344 µs
+before cascade (11): total 424523 µs
+end of cascade; end of pyramid loop (11): 79719 µs
+end of cascade; end of pyramid loop (11): total 504242 µs
+beginning of pyramid loop (12): 2 µs
+beginning of pyramid loop (12): total 504244 µs
+before nearest-neighbor (12): 1 µs
+before nearest-neighbor (12): total 504245 µs
+after nearest-neighbor (12): 117 µs
+after nearest-neighbor (12): total 504362 µs
+before integral image (12): 1 µs
+before integral image (12): total 504363 µs
+after integral image (12): 439 µs
+after integral image (12): total 504802 µs
+detecting faces, iter := 12
+before cascade (12): 348 µs
+before cascade (12): total 505150 µs
+end of cascade; end of pyramid loop (12): 52682 µs
+end of cascade; end of pyramid loop (12): total 557832 µs
+beginning of pyramid loop (13): 2 µs
+beginning of pyramid loop (13): total 557834 µs
+before nearest-neighbor (13): 1 µs
+before nearest-neighbor (13): total 557835 µs
+after nearest-neighbor (13): 80 µs
+after nearest-neighbor (13): total 557915 µs
+before integral image (13): 1 µs
+before integral image (13): total 557916 µs
+after integral image (13): 309 µs
+after integral image (13): total 558225 µs
+detecting faces, iter := 13
+before cascade (13): 345 µs
+before cascade (13): total 558570 µs
+end of cascade; end of pyramid loop (13): 34605 µs
+end of cascade; end of pyramid loop (13): total 593175 µs
+beginning of pyramid loop (14): 2 µs
+beginning of pyramid loop (14): total 593177 µs
+before nearest-neighbor (14): 2 µs
+before nearest-neighbor (14): total 593179 µs
+after nearest-neighbor (14): 56 µs
+after nearest-neighbor (14): total 593235 µs
+before integral image (14): 1 µs
+before integral image (14): total 593236 µs
+after integral image (14): 211 µs
+after integral image (14): total 593447 µs
+detecting faces, iter := 14
+before cascade (14): 343 µs
+before cascade (14): total 593790 µs
+end of cascade; end of pyramid loop (14): 24523 µs
+end of cascade; end of pyramid loop (14): total 618313 µs
+beginning of pyramid loop (15): 2 µs
+beginning of pyramid loop (15): total 618315 µs
+before nearest-neighbor (15): 1 µs
+before nearest-neighbor (15): total 618316 µs
+after nearest-neighbor (15): 40 µs
+after nearest-neighbor (15): total 618356 µs
+before integral image (15): 1 µs
+before integral image (15): total 618357 µs
+after integral image (15): 146 µs
+after integral image (15): total 618503 µs
+detecting faces, iter := 15
+before cascade (15): 343 µs
+before cascade (15): total 618846 µs
+end of cascade; end of pyramid loop (15): 15265 µs
+end of cascade; end of pyramid loop (15): total 634111 µs
+beginning of pyramid loop (16): 1 µs
+beginning of pyramid loop (16): total 634112 µs
+before nearest-neighbor (16): 1 µs
+before nearest-neighbor (16): total 634113 µs
+after nearest-neighbor (16): 29 µs
+after nearest-neighbor (16): total 634142 µs
+before integral image (16): 2 µs
+before integral image (16): total 634144 µs
+after integral image (16): 101 µs
+after integral image (16): total 634245 µs
+detecting faces, iter := 16
+before cascade (16): 344 µs
+before cascade (16): total 634589 µs
+end of cascade; end of pyramid loop (16): 10587 µs
+end of cascade; end of pyramid loop (16): total 645176 µs
+beginning of pyramid loop (17): 1 µs
+beginning of pyramid loop (17): total 645177 µs
+before nearest-neighbor (17): 1 µs
+before nearest-neighbor (17): total 645178 µs
+after nearest-neighbor (17): 22 µs
+after nearest-neighbor (17): total 645200 µs
+before integral image (17): 1 µs
+before integral image (17): total 645201 µs
+after integral image (17): 70 µs
+after integral image (17): total 645271 µs
+detecting faces, iter := 17
+before cascade (17): 343 µs
+before cascade (17): total 645614 µs
+end of cascade; end of pyramid loop (17): 2404 µs
+end of cascade; end of pyramid loop (17): total 648018 µs
+beginning of pyramid loop (18): 1 µs
+beginning of pyramid loop (18): total 648019 µs
+before nearest-neighbor (18): 1 µs
+before nearest-neighbor (18): total 648020 µs
+after nearest-neighbor (18): 15 µs
+after nearest-neighbor (18): total 648035 µs
+before integral image (18): 1 µs
+before integral image (18): total 648036 µs
+after integral image (18): 49 µs
+after integral image (18): total 648085 µs
+detecting faces, iter := 18
+before cascade (18): 347 µs
+before cascade (18): total 648432 µs
+end of cascade; end of pyramid loop (18): 516 µs
+end of cascade; end of pyramid loop (18): total 648948 µs
+beginning of pyramid loop (19): 1 µs
+beginning of pyramid loop (19): total 648949 µs
+end of detectObjects: 105787 µs
+end of detectObjects: total 754736 µs
+-- saving output --
+-- image saved --

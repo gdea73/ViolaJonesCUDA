@@ -39,6 +39,9 @@
 
 #define INPUT_FILENAME "Face.pgm"
 #define OUTPUT_FILENAME "Output.pgm"
+#include <time.h>
+#include <sys/time.h>
+#include "timers.h"
 
 using namespace std;
 
@@ -46,6 +49,11 @@ using namespace std;
 int main (int argc, char *argv[]) 
 {
 
+	startTimer(0);
+
+	startTimer(4);
+	// sequential so don't init_GPU();
+	stopTimer(4);
 	int flag;
 	
 	int mode = 1;
@@ -63,12 +71,14 @@ int main (int argc, char *argv[])
 	MyImage imageObj;
 	MyImage *image = &imageObj;
 
-	flag = readPgm((char *)"Face.pgm", image);
+	startTimer(2);
+	flag = readPgm(argv[1], image);
 	if (flag == -1)
 	{
 		printf( "Unable to open input image\n");
 		return 1;
 	}
+	stopTimer(2);
 
 	printf("-- loading cascade classifier --\r\n");
 
@@ -84,13 +94,17 @@ int main (int argc, char *argv[])
 	cascade->orig_window_size.width = 24;
 
 
+	startTimer(3);
 	readTextClassifier();
+	stopTimer(3);
 
 	std::vector<MyRect> result;
 
 	printf("-- detecting faces --\r\n");
 
+	startTimer(1);
 	result = detectObjects(image, minSize, maxSize, cascade, scaleFactor, minNeighbours);
+	stopTimer(1);
 
 	for(i = 0; i < result.size(); i++ )
 	{
@@ -98,14 +112,23 @@ int main (int argc, char *argv[])
 		drawRectangle(image, r);
 	}
 
+	printf("-- detected %d face(s) --\r\n", result.size()); 
+
 	printf("-- saving output --\r\n"); 
-	flag = writePgm((char *)OUTPUT_FILENAME, image); 
+	flag = writePgm(argv[2], image); 
 
 	printf("-- image saved --\r\n");
 
 	/* delete image and free classifier */
 	releaseTextClassifier();
 	freeImage(image);
+
+	stopTimer(0);
+	printf("total time in seconds:\n%Lf\n", timediffs[0]);
+	printf("detection time in seconds:\n%Lf\n", timediffs[1]);
+	printf("image loading time in seconds:\n%Lf\n", timediffs[2]);
+	printf("GPU initialization time:\n%Lf\n", timediffs[4]);
+	printf("total time, minus GPU init:\n%Lf\n", timediffs[0] - timediffs[4]);
 
 	return 0;
 }
