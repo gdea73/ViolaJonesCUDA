@@ -1,0 +1,44 @@
+Timing Viola-Jones CUDA with several image sizes.
+Iterations per scale: 10.
+Image file: img/solvay_1024x500.pgm
+average total: 1.8629 s
+average image load: .0213 s
+average GPU init: 1.5177 s
+average detection time: .2200 s
+average total less GPU init: .3451 s
+Image file: img/solvay_1280_626.pgm
+average total: 2.0104 s
+average image load: .0333 s
+average GPU init: 1.5105 s
+average detection time: .3273 s
+average total less GPU init: .4998 s
+Image file: img/solvay_1536_750.pgm
+average total: 2.2017 s
+average image load: .0475 s
+average GPU init: 1.5281 s
+average detection time: .4548 s
+average total less GPU init: .6736 s
+Image file: img/solvay_1850_900.pgm
+average total: 2.4743 s
+average image load: .0680 s
+average GPU init: 1.5285 s
+average detection time: .6401 s
+average total less GPU init: .9458 s
+Image file: img/solvay_2200_1080.pgm
+average total: 2.8550 s
+average image load: .1010 s
+average GPU init: 1.5289 s
+average detection time: .8970 s
+average total less GPU init: 1.3260 s
+Image file: img/solvay_2650_1300.pgm
+average total: 3.4175 s
+average image load: .1397 s
+average GPU init: 1.5200 s
+average detection time: 1.2888 s
+average total less GPU init: 1.8975 s
+Image file: img/solvay_3180_1560.pgm
+average total: 4.2005 s
+average image load: .1964 s
+average GPU init: 1.5206 s
+average detection time: 1.7897 s
+average total less GPU init: 2.6799 s
