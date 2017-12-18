@@ -40,7 +40,7 @@
 // enables timers on detection, GPU init., &c
 // #define TIME_DETECTION
 // enables image output with white rectangles around detected faces
-// #define DRAW_RECTANGES
+#define DRAW_RECTANGLES
 
 #ifdef TIME_DETECTION
 	#include <time.h>
