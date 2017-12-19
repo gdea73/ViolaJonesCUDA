@@ -38,7 +38,7 @@
 #include "haar.h"
 
 // enables timers on detection, GPU init., &c
-// #define TIME_DETECTION
+#define TIME_DETECTION
 // enables image output with white rectangles around detected faces
 #define DRAW_RECTANGLES
 
@@ -140,7 +140,7 @@ int main (int argc, char *argv[]) {
 	for (i = 0; i < result.size(); i++) {
 		MyRect r = result[i];
 		// printf("Face number %d found at coordinates x: %d , y: %d - With width: %d , height: %d\n",i,r.x,r.y,r.width,r.height);
-		printf("(%d, %d)\r\n", r.x, r.y, r.x + r.width, r.y + r.height);
+		printf("(%d, %d), (%d, %d)\r\n", r.x, r.y, r.x + r.width, r.y + r.height);
 #ifdef DRAW_RECTANGLES
 		drawRectangle(image, r);
 #endif
