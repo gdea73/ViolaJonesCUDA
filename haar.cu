@@ -42,13 +42,15 @@
 #include "segments.h"
 #include "kernels.cu"
 
+//#define PARALLEL_SCAN_TRANSPOSE
 
 // this is duplicated in kernels.cu for the GPU Haar cascade
 #define STAGE_THRESH_MULTIPLIER_CPU 0.85
 // depending on our choice of precision, we may want > 12 chars when reading
 // floating-point values in class.txt
 #define FGETS_BUF_SIZE 12
-#define MAX_FACES 500 
+#define MAX_FACES 500
+
 
 // one element per stage; holds stage lengths in number of filters
 static int *stages_array;
@@ -62,7 +64,12 @@ float *stage_data_GPU;
 // allocated in scale_image_invoker only for the first pyramid iteration
 static int *remaining_candidates;
 static uint8_t *results;
+#ifndef PARALLEL_SCAN_TRANSPOSE
 static int *sum_GPU, *squ_GPU;
+#endif
+#ifdef PARALLEL_SCAN_TRANSPOSE
+float *sum_GPU, *squ_GPU;
+#endif
 
 int n_features = 0;
 int iter_counter = 0;
@@ -97,7 +104,7 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 	MyImage *img = _img;
 	/***********************************
 	 * create structs for images
-	 * see haar.h for details 
+	 * see haar.h for details
 	 * img1: normal image (unsigned char)
 	 * sum1: integral image (int)
 	 * sqsum1: square integral image (int)
@@ -114,12 +121,12 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 	 * allCandidates is the preliminaray face candidate,
 	 * which will be refined later.
 	 *
-	 * std::vector is a sequential container 
-	 * http://en.wikipedia.org/wiki/Sequence_container_(C++) 
+	 * std::vector is a sequential container
+	 * http://en.wikipedia.org/wiki/Sequence_container_(C++)
 	 *
-	 * Each element of the std::vector is a "MyRect" struct 
+	 * Each element of the std::vector is a "MyRect" struct
 	 * MyRect struct keeps the info of a rectangle (see haar.h)
-	 * The rectangle contains one face candidate 
+	 * The rectangle contains one face candidate
 	 *****************************************************/
 	std::vector<MyRect> allCandidates;
 
@@ -142,7 +149,13 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 	createSumImage(img->width, img->height, sum1);
 	/* malloc for sqsum1: unsigned char */
 	createSumImage(img->width, img->height, sqsum1);
-
+	#ifdef PARALLEL_SCAN_TRANSPOSE
+	// malloc GPU arrays
+	cudaMalloc((void **) &sum_GPU, img->height*img->width* sizeof(float));
+	cudaMalloc((void **) &squ_GPU, img->height*img->width * sizeof(float));
+	unsigned char* imgdata = NULL;
+	cudaMalloc( (void**) &imgdata,img->height*img->width*sizeof(unsigned char));
+	#endif
 	/* initial scaling factor */
 	factor = 1;
 
@@ -170,7 +183,7 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 			continue;
 
 		/*************************************
-		 * Set the width and height of 
+		 * Set the width and height of
 		 * img1: normal image (unsigned char)
 		 * sum1: integral image (int)
 		 * sqsum1: squared integral image (int)
@@ -192,7 +205,13 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 * At each scale of the image pyramid,
 		 * compute a new integral and squared integral image
 		 ***************************************************/
+		#ifndef PARALLEL_SCAN_TRANSPOSE
 		integralImages(img1, sum1, sqsum1);
+		#endif
+		#ifdef PARALLEL_SCAN_TRANSPOSE
+		cudaMemcpy( imgdata, img1->data,img1->height*img1->width*sizeof(unsigned char),cudaMemcpyHostToDevice);
+		prescanArray(sum_GPU,squ_GPU,imgdata,img1->height,img1->width);
+		#endif
 
 		/* sets images for haar classifier cascade */
 		/**************************************************
@@ -200,7 +219,7 @@ std::vector<MyRect> detectObjects( MyImage* _img, MySize minSize, MySize maxSize
 		 * Summing pixels within a haar window is done by
 		 * using four corners of the integral image:
 		 * http://en.wikipedia.org/wiki/Summed_area_table
-		 * 
+		 *
 		 * This function loads the four corners,
 		 * but does not do compuation based on four coners.
 		 * The computation is done next in ScaleImage_Invoker
@@ -255,18 +274,22 @@ void scale_image_invoker(
 	// additional overhead to cudaMalloc and cudaFree for each scale. The excess
 	// memory will merely go unaccessed for smaller pyramid iterations.
 	if (factor == 1) {
+		#ifndef PARALLEL_SCAN_TRANSPOSE
 		cudaMalloc((void **) &sum_GPU, sum_area * sizeof(int));
 		cudaMalloc((void **) &squ_GPU, sum_area * sizeof(int));
+		#endif
 		cudaMalloc((void **) &results, n_windows * sizeof(uint8_t));
 	}
 	// the results flags need to be reset between scales
 	cudaMemset(results, 0, n_windows * sizeof(uint8_t));
 	face_thread_IDs = (int *) calloc(n_windows, sizeof(int));
 	results_host = (uint8_t *) calloc(n_windows, sizeof(uint8_t));
+	#ifndef PARALLEL_SCAN_TRANSPOSE
 	cudaMemcpy(sum_GPU, cascade->sum.data, sum_area * sizeof(int),
 			   cudaMemcpyHostToDevice);
 	cudaMemcpy(squ_GPU, cascade->sqsum.data, sum_area * sizeof(int),
 			   cudaMemcpyHostToDevice);
+	#endif
 	printf("Scaling factor: %f; number of detection windows: %d.\n",
 		   factor, n_windows);
 	cascade_segment1_kernel<<<gridDims, blockDims>>>(
@@ -371,7 +394,7 @@ void integralImages(MyImage *src, MyIntImage *sum, MyIntImage *sqsum) {
 		{
 			it = data[y*width+x];
 			/* sum of the current row (integer)*/
-			s += it; 
+			s += it;
 			sq += it*it;
 
 			t = s;
@@ -427,7 +450,7 @@ int y; int j;
 	}
 }
 
-/* parameters: 
+/* parameters:
 * source
 * scaled (NN output pre-integral)
 * integral output
@@ -505,7 +528,7 @@ void read_text_classifiers() {
 	 * 18 parameter per filter x tilter per stage
 	 * + 1 threshold per stage
 	 *
-	 * For example, in 5kk73, 
+	 * For example, in 5kk73,
 	 * the first stage has 9 filters,
 	 * the first stage is specified using
 	 * 18 * 9 + 1 = 163 parameters
@@ -562,7 +585,7 @@ void read_text_classifiers() {
 				} else {
 					break;
 				}
-			} 
+			}
 			if (fgets(fgets_buf, FGETS_BUF_SIZE, fp) != NULL) {
 				// The same is true here (see above TODO), except the scaling
 				// factor is 256, and there actually is loss of precision here
@@ -606,4 +629,7 @@ void free_GPU_pointers() {
 	cudaFree(results);
 	cudaFree(sum_GPU);
 	cudaFree(squ_GPU);
+	#ifdef PARALLEL_SCAN_TRANSPOSE
+	cudaFree(imgdata);
+	#endif
 }
